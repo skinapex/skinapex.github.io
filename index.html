@@ -1,11 +1,43 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SkinApex</title>
+    <title>SkinApex - Minecraft Bedrock Skin Pack Editor</title>
+    <meta name="description" content="SkinApex is a browser-based Minecraft Bedrock skin pack editor with live 3D preview, bone editing, animation mapping, and pack utilities.">
+    <meta name="keywords" content="Minecraft Bedrock skin editor, Bedrock skin pack editor, Minecraft skin pack manager, Minecraft Bedrock animation editor, Bedrock geometry editor">
+    <meta name="author" content="SkinApex contributors">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#1e1e1e">
+    <meta name="application-name" content="SkinApex">
+    <link rel="canonical" href="https://skinapex.github.io/">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="SkinApex - Minecraft Bedrock Skin Pack Editor">
+    <meta property="og:description" content="Edit Minecraft Bedrock skin packs in the browser with live 3D preview, bone tools, animation mapping, and pack utilities.">
+    <meta property="og:url" content="https://skinapex.github.io/">
+    <meta property="og:image" content="https://skinapex.github.io/og-image.svg">
+    <meta property="og:image:alt" content="SkinApex - Minecraft Bedrock skin pack editor with 3D preview, bone editing, and animation tools.">
+    <meta property="og:site_name" content="SkinApex">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="SkinApex - Minecraft Bedrock Skin Pack Editor">
+    <meta name="twitter:description" content="Browser-based Minecraft Bedrock skin pack editor with live 3D preview, bone editing, and animation tools.">
+    <meta name="twitter:image" content="https://skinapex.github.io/og-image.svg">
+    <meta name="twitter:image:alt" content="SkinApex - Minecraft Bedrock skin pack editor with 3D preview, bone editing, and animation tools.">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="apple-touch-icon" href="favicon.svg">
     <link rel="stylesheet" href="css/style.css">
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            "name": "SkinApex",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "Web",
+            "url": "https://skinapex.github.io/",
+            "description": "Browser-based Minecraft Bedrock skin pack editor with live 3D preview, bone editing, animation mapping, and pack utilities.",
+            "softwareHelp": "README.md"
+        }
+    </script>
 </head>
 <body>
     <div id="boot-overlay" class="boot-overlay">
@@ -133,6 +165,9 @@
                     </div>
                     <h1 class="welcome-title">SkinApex</h1>
                     <p class="welcome-subtitle" data-i18n="welcome.subtitle">Minecraft Bedrock Edition Skin Pack Manager</p>
+                    <p class="welcome-subtitle" style="max-width:720px;margin:0 auto;line-height:1.6;">
+                        Edit Minecraft Bedrock skin packs directly in the browser with live 3D preview, bone editing, animation mapping, file browsing, and pack utilities.
+                    </p>
 
                     <div class="welcome-drop" id="welcome-drop">
                         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#007acc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -151,6 +186,45 @@
                     <div class="welcome-shortcuts">
                         <kbd>Ctrl</kbd>+<kbd>O</kbd> <span data-i18n="welcome.shortcut">Open File</span>
                     </div>
+
+                    <section class="welcome-copy" aria-label="About SkinApex">
+                        <h2 class="welcome-copy-title">A Bedrock skin pack editor built for real project files</h2>
+                        <p class="welcome-copy-text">
+                            SkinApex helps you work with Minecraft Bedrock skin packs in the browser. Open existing packs, inspect files,
+                            preview models in 3D, edit bones, update skin metadata, and manage animation mappings without setting up a backend.
+                        </p>
+                        <ul class="welcome-feature-list">
+                            <li>Supports <strong>.mcpack</strong>, <strong>.zip</strong>, loose files, and folders</li>
+                            <li>Includes live 3D preview, bone outline tools, and transform editing</li>
+                            <li>Supports skin animation mapping with official Bedrock animation autocomplete</li>
+                            <li>Works on desktop and mobile layouts</li>
+                        </ul>
+                        <p class="welcome-copy-text">
+                            If you build, inspect, or maintain Bedrock skin packs, SkinApex is meant to be a focused in-browser editor instead of a generic archive viewer.
+                        </p>
+                    </section>
+
+                    <section class="welcome-sections" aria-label="SkinApex features and use cases">
+                        <article class="welcome-section-card">
+                            <h2 class="welcome-section-title">Core Features</h2>
+                            <ul class="welcome-section-list">
+                                <li>Open Bedrock skin packs from archives or folders</li>
+                                <li>Inspect `manifest.json`, `skins.json`, textures, and geometry files</li>
+                                <li>Preview models with live 3D rendering</li>
+                                <li>Edit bones, pivots, transforms, and skin metadata</li>
+                                <li>Manage animation mappings with official animation suggestions</li>
+                            </ul>
+                        </article>
+                        <article class="welcome-section-card">
+                            <h2 class="welcome-section-title">Best For</h2>
+                            <ul class="welcome-section-list">
+                                <li>Minecraft Bedrock skin pack creators</li>
+                                <li>Artists reviewing geometry and textures together</li>
+                                <li>Pack maintainers updating metadata and animation mappings</li>
+                                <li>Developers who want a lightweight browser-based editing workflow</li>
+                            </ul>
+                        </article>
+                    </section>
                 </div>
             </div>
 
