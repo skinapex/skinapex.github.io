@@ -1,0 +1,817 @@
+{
+  "actor.animation.json": [
+    "animation.actor.billboard"
+  ],
+  "agent.animation.json": [
+    "animation.agent.move",
+    "animation.agent.shrug",
+    "animation.agent.swing_arms"
+  ],
+  "allay.animation.json": [
+    "animation.allay.dance",
+    "animation.allay.fly",
+    "animation.allay.hold_item",
+    "animation.allay.hold_item_fly",
+    "animation.allay.idle",
+    "animation.allay.look_at_target.default"
+  ],
+  "armadillo.animation.json": [
+    "animation.armadillo.baby_peek",
+    "animation.armadillo.baby_roll_up",
+    "animation.armadillo.baby_rolled_up",
+    "animation.armadillo.baby_unroll",
+    "animation.armadillo.baby_unroll_fast",
+    "animation.armadillo.baby_walk",
+    "animation.armadillo.look_at_target",
+    "animation.armadillo.peek",
+    "animation.armadillo.roll_up",
+    "animation.armadillo.rolled_up",
+    "animation.armadillo.unroll",
+    "animation.armadillo.unroll_fast",
+    "animation.armadillo.walk"
+  ],
+  "armor.animation.json": [
+    "animation.armor.boots.offset",
+    "animation.armor.chestplate.offset",
+    "animation.armor.helmet.offset",
+    "animation.armor.leggings.offset"
+  ],
+  "armor_stand.animation.json": [
+    "animation.armor_stand.athena_pose",
+    "animation.armor_stand.brandish_pose",
+    "animation.armor_stand.cancan_a_pose",
+    "animation.armor_stand.cancan_b_pose",
+    "animation.armor_stand.default_pose",
+    "animation.armor_stand.entertain_pose",
+    "animation.armor_stand.hero_pose",
+    "animation.armor_stand.holding_heavy_core",
+    "animation.armor_stand.honor_pose",
+    "animation.armor_stand.no_pose",
+    "animation.armor_stand.riposte_pose",
+    "animation.armor_stand.salute_pose",
+    "animation.armor_stand.solemn_pose",
+    "animation.armor_stand.wiggle",
+    "animation.armor_stand.zombie_pose"
+  ],
+  "arrow.animation.json": [
+    "animation.arrow.move"
+  ],
+  "axolotl.animation.json": [
+    "animation.axolotl.baby_idle_floor",
+    "animation.axolotl.baby_idle_floor_underwater",
+    "animation.axolotl.baby_idle_underwater",
+    "animation.axolotl.baby_swim",
+    "animation.axolotl.baby_walk_floor",
+    "animation.axolotl.baby_walk_floor_underwater",
+    "animation.axolotl.idle_floor",
+    "animation.axolotl.idle_floor_underwater",
+    "animation.axolotl.idle_underwater",
+    "animation.axolotl.play_dead",
+    "animation.axolotl.swim",
+    "animation.axolotl.swim_angle",
+    "animation.axolotl.walk_floor",
+    "animation.axolotl.walk_floor_underwater"
+  ],
+  "bat.animation.json": [
+    "animation.bat.flying",
+    "animation.bat.resting"
+  ],
+  "bee.animation.json": [
+    "animation.bee.fly.bobbing",
+    "animation.bee.flying",
+    "animation.bee.no_stinger",
+    "animation.bee.sting"
+  ],
+  "blaze.animation.json": [
+    "animation.blaze.move"
+  ],
+  "bow.animation.json": [
+    "animation.bow.wield",
+    "animation.bow.wield_first_person_pull"
+  ],
+  "breeze.animation.json": [
+    "animation.breeze.idle",
+    "animation.breeze.idle_ground_particles",
+    "animation.breeze.jump",
+    "animation.breeze.shoot",
+    "animation.breeze.slide",
+    "animation.breeze.slide_ground_particles",
+    "animation.breeze.whirl_sound"
+  ],
+  "camel.animation.json": [
+    "animation.camel.baby_dash",
+    "animation.camel.baby_idle",
+    "animation.camel.baby_sit",
+    "animation.camel.baby_sit_down",
+    "animation.camel.baby_stand_up",
+    "animation.camel.baby_walk",
+    "animation.camel.dash",
+    "animation.camel.dash_sound",
+    "animation.camel.idle",
+    "animation.camel.sit",
+    "animation.camel.sit_down",
+    "animation.camel.stand_up",
+    "animation.camel.walk"
+  ],
+  "cat.animation.json": [
+    "animation.cat.baby_lie_down",
+    "animation.cat.baby_sit",
+    "animation.cat.baby_transform",
+    "animation.cat.lie_down",
+    "animation.cat.sit",
+    "animation.cat.sneak",
+    "animation.cat.sprint",
+    "animation.cat.walk"
+  ],
+  "chicken.animation.json": [
+    "animation.chicken.baby_transform",
+    "animation.chicken.general",
+    "animation.chicken.general.v1.0",
+    "animation.chicken.move"
+  ],
+  "cod.animation.json": [
+    "animation.cod.flop",
+    "animation.cod.swim"
+  ],
+  "copper_golem.animation.json": [
+    "animation.copper_golem.chest_interaction.put_item",
+    "animation.copper_golem.chest_interaction.put_item_fail",
+    "animation.copper_golem.chest_interaction.take_item",
+    "animation.copper_golem.chest_interaction.take_item_fail",
+    "animation.copper_golem.hold_item",
+    "animation.copper_golem.spin",
+    "animation.copper_golem.spin.oxidized",
+    "animation.copper_golem.spin.weathered",
+    "animation.copper_golem.walk",
+    "animation.copper_golem.walk_holding_item"
+  ],
+  "cow.animation.json": [
+    "animation.cow.baby_transform",
+    "animation.cow.setup",
+    "animation.cow.setup.v1.0"
+  ],
+  "creaking.animation.json": [
+    "animation.creaking.attack",
+    "animation.creaking.look_at_target",
+    "animation.creaking.sway",
+    "animation.creaking.twitch",
+    "animation.creaking.walk"
+  ],
+  "creeper.animation.json": [
+    "animation.creeper.legs",
+    "animation.creeper.swelling"
+  ],
+  "crossbow.animation.json": [
+    "animation.crossbow.wield",
+    "animation.crossbow.wield_first_person_pull"
+  ],
+  "dolphin.animation.json": [
+    "animation.dolphin.move"
+  ],
+  "dressing_room_idle_arm_1.anim.json": [
+    "animation.idle_arm_1"
+  ],
+  "dressing_room_idle_back_1.anim.json": [
+    "animation.idle_back_1"
+  ],
+  "dressing_room_idle_bottom_1.anim.json": [
+    "animation.idle_bottom_1"
+  ],
+  "dressing_room_idle_torso_1.anim.json": [
+    "animation.idle_torso_1"
+  ],
+  "dressing_room_react_arm_1.anim.json": [
+    "animation.react_arm_1"
+  ],
+  "dressing_room_react_arm_2.anim.json": [
+    "animation.react_arm_2"
+  ],
+  "dressing_room_react_back_1.anim.json": [
+    "animation.react_back_1"
+  ],
+  "dressing_room_react_back_2.anim.json": [
+    "animation.react_back_2"
+  ],
+  "dressing_room_react_bored_1.anim.json": [
+    "animation.react_bored_1"
+  ],
+  "dressing_room_react_bored_arm_1.anim.json": [
+    "animation.react_bored_arm_1"
+  ],
+  "dressing_room_react_bored_back_1.anim.json": [
+    "animation.react_bored_back_1"
+  ],
+  "dressing_room_react_bored_bottom_1.anim.json": [
+    "animation.react_bored_bottom_1"
+  ],
+  "dressing_room_react_bored_head_1.anim.json": [
+    "animation.react_bored_head_1"
+  ],
+  "dressing_room_react_bored_torso_1.anim.json": [
+    "animation.react_bored_torso_1"
+  ],
+  "dressing_room_react_bottom_1.anim.json": [
+    "animation.react_bottom_1"
+  ],
+  "dressing_room_react_bottom_2.anim.json": [
+    "animation.react_bottom_2"
+  ],
+  "dressing_room_react_bottom_3.anim.json": [
+    "animation.react_bottom_3"
+  ],
+  "dressing_room_react_confirm_1.anim.json": [
+    "animation.react_confirm_1"
+  ],
+  "dressing_room_react_confirm_2.anim.json": [
+    "animation.react_confirm_2"
+  ],
+  "dressing_room_react_head_1.anim.json": [
+    "animation.react_head_1"
+  ],
+  "dressing_room_react_head_2.anim.json": [
+    "animation.react_head_2"
+  ],
+  "dressing_room_react_idle.anim.json": [
+    "animation.react_idle"
+  ],
+  "dressing_room_react_offer_1.json": [
+    "animation.react_offer_1"
+  ],
+  "dressing_room_react_offer_2.json": [
+    "animation.react_offer_2"
+  ],
+  "dressing_room_react_offer_arm_1.json": [
+    "animation.react_offer_arm_1"
+  ],
+  "dressing_room_react_offer_arm_2.json": [
+    "animation.react_offer_arm_2"
+  ],
+  "dressing_room_react_offer_back_1.json": [
+    "animation.react_offer_back_1"
+  ],
+  "dressing_room_react_offer_back_2.json": [
+    "animation.react_offer_back_2"
+  ],
+  "dressing_room_react_offer_bottom_1.json": [
+    "animation.react_offer_bottom_1"
+  ],
+  "dressing_room_react_offer_bottom_2.json": [
+    "animation.react_offer_bottom_2"
+  ],
+  "dressing_room_react_offer_head_1.json": [
+    "animation.react_offer_head_1"
+  ],
+  "dressing_room_react_offer_head_2.json": [
+    "animation.react_offer_head_2"
+  ],
+  "dressing_room_react_offer_torso_1.json": [
+    "animation.react_offer_torso_1"
+  ],
+  "dressing_room_react_offer_torso_2.json": [
+    "animation.react_offer_torso_2"
+  ],
+  "dressing_room_react_torso_1.anim.json": [
+    "animation.react_torso_1"
+  ],
+  "dressing_room_react_torso_2.anim.json": [
+    "animation.react_torso_2"
+  ],
+  "drowned.animation.json": [
+    "animation.drowned.attack.rotations"
+  ],
+  "drowned.animation.v1.0.json": [
+    "animation.drowned.attack.baby_rotations",
+    "animation.drowned.attack.rotations.v1.0",
+    "animation.drowned.swimming.v1.0"
+  ],
+  "elytra.animation.json": [
+    "animation.elytra.default",
+    "animation.elytra.gliding",
+    "animation.elytra.sleeping",
+    "animation.elytra.sneaking",
+    "animation.elytra.swimming"
+  ],
+  "ender_crystal.animation.json": [
+    "animation.ender_crystal.move"
+  ],
+  "ender_dragon.animation.json": [
+    "animation.ender_dragon.jaw_movement",
+    "animation.ender_dragon.neck_head_movement",
+    "animation.ender_dragon.setup",
+    "animation.ender_dragon.tail_movement",
+    "animation.ender_dragon.wings_limbs_movement"
+  ],
+  "enderman.animation.json": [
+    "animation.enderman.arms_legs",
+    "animation.enderman.base_pose",
+    "animation.enderman.carrying",
+    "animation.enderman.scary_face"
+  ],
+  "enderman.animation.v1.0.json": [
+    "animation.enderman.base_pose_v1.0",
+    "animation.enderman.scary_face_v1.0"
+  ],
+  "endermite.animation.json": [
+    "animation.endermite.move"
+  ],
+  "evocation_fang.animation.json": [
+    "animation.evocation_fang.bite"
+  ],
+  "evoker.animation.json": [
+    "animation.evoker.casting",
+    "animation.evoker.casting.v1.0",
+    "animation.evoker.general",
+    "animation.evoker.general.v1.0",
+    "animation.evoker.move"
+  ],
+  "fireworks_rocket.animation.json": [
+    "animation.fireworks_rocket.move"
+  ],
+  "fox.animation.json": [
+    "animation.fox.baby_pounce",
+    "animation.fox.baby_sit",
+    "animation.fox.baby_sleep",
+    "animation.fox.baby_walk",
+    "animation.fox.baby_wiggle",
+    "animation.fox.crouch",
+    "animation.fox.pounce",
+    "animation.fox.setup",
+    "animation.fox.sit",
+    "animation.fox.sleep",
+    "animation.fox.stuck",
+    "animation.fox.wiggle"
+  ],
+  "frog.animation.json": [
+    "animation.frog.croak",
+    "animation.frog.idle.water",
+    "animation.frog.jump",
+    "animation.frog.swim",
+    "animation.frog.tongue",
+    "animation.frog.walk"
+  ],
+  "ghast.animation.json": [
+    "animation.ghast.move"
+  ],
+  "goat.animation.json": [
+    "animation.goat.attack",
+    "animation.goat.baby_scaling",
+    "animation.goat.look_at_target",
+    "animation.goat.ram_attack",
+    "animation.goat.walk"
+  ],
+  "guardian.animation.json": [
+    "animation.guardian.move_eye",
+    "animation.guardian.setup",
+    "animation.guardian.spikes",
+    "animation.guardian.swim"
+  ],
+  "guardian.animation.v1.0.json": [
+    "animation.guardian.move_eye.v1.0",
+    "animation.guardian.spikes.v1.0"
+  ],
+  "happy_ghast.animation.json": [
+    "animation.happy_ghast.move",
+    "animation.happy_ghast.scale"
+  ],
+  "hoglin.animation.json": [
+    "animation.hoglin.attack",
+    "animation.hoglin.baby_scaling",
+    "animation.hoglin.look_at_target",
+    "animation.hoglin.walk"
+  ],
+  "horse_v1.animation.json": [
+    "animation.horse.baby_transform",
+    "animation.horse.eat",
+    "animation.horse.look_at_player",
+    "animation.horse.mouth",
+    "animation.horse.setup",
+    "animation.horse.shake_tail",
+    "animation.horse.stand",
+    "animation.horse.walk"
+  ],
+  "horse_v2.animation.json": [
+    "animation.horse.v2.baby_transform",
+    "animation.horse.v2.eat",
+    "animation.horse.v2.setup",
+    "animation.horse.v2.stand",
+    "animation.horse.v2.tail",
+    "animation.horse.v2.walk"
+  ],
+  "horse_v3.animation.json": [
+    "animation.horse.v3.baby_transform",
+    "animation.horse.v3.eat",
+    "animation.horse.v3.look_at_player",
+    "animation.horse.v3.rear",
+    "animation.horse.v3.tail",
+    "animation.horse.v3.walk"
+  ],
+  "humanoid.animation.json": [
+    "animation.humanoid.attack.rotations",
+    "animation.humanoid.base_pose",
+    "animation.humanoid.big_head",
+    "animation.humanoid.bob",
+    "animation.humanoid.bow_and_arrow",
+    "animation.humanoid.brandish_spear",
+    "animation.humanoid.brushing",
+    "animation.humanoid.celebrating",
+    "animation.humanoid.charging",
+    "animation.humanoid.damage_nearby_mobs",
+    "animation.humanoid.holding",
+    "animation.humanoid.holding_brush",
+    "animation.humanoid.holding_spyglass",
+    "animation.humanoid.look_at_target.default",
+    "animation.humanoid.look_at_target.gliding",
+    "animation.humanoid.look_at_target.swimming",
+    "animation.humanoid.melee_spear_hold",
+    "animation.humanoid.melee_spear_use",
+    "animation.humanoid.move",
+    "animation.humanoid.riding.arms",
+    "animation.humanoid.riding.body",
+    "animation.humanoid.riding.legs",
+    "animation.humanoid.sneaking",
+    "animation.humanoid.swimming",
+    "animation.humanoid.tooting_goat_horn",
+    "animation.humanoid.use_item_progress",
+    "animation.zombie.melee_spear_hold",
+    "animation.zombie.melee_spear_use"
+  ],
+  "iron_golem.animation.json": [
+    "animation.iron_golem.attack",
+    "animation.iron_golem.flower",
+    "animation.iron_golem.move",
+    "animation.iron_golem.move_to_target",
+    "animation.iron_golem.walk",
+    "animation.iron_golem.walk_to_target"
+  ],
+  "llama.animation.json": [
+    "animation.llama.baby_transform",
+    "animation.llama.baby_transform.v1.0",
+    "animation.llama.setup",
+    "animation.llama.setup.v1.0"
+  ],
+  "llama_spit.animation.json": [
+    "animation.llama_spit.setup"
+  ],
+  "look_at_target.animation.json": [
+    "animation.common.look_at_target"
+  ],
+  "magma_cube.animation.json": [
+    "animation.magma_cube.move"
+  ],
+  "minecart.animation.json": [
+    "animation.minecart.move"
+  ],
+  "minecart.animation.v1.0.json": [
+    "animation.minecart.move.v1.0"
+  ],
+  "mooshroom.animation.json": [
+    "animation.mooshroom.baby_transform",
+    "animation.mooshroom.setup",
+    "animation.mooshroom.setup.v1.0"
+  ],
+  "nautilus.animation.json": [
+    "animation.nautilus.breathe",
+    "animation.nautilus.dashing",
+    "animation.nautilus.look_at_target",
+    "animation.nautilus.swim"
+  ],
+  "npc.animation.json": [
+    "animation.npc.baby_transform",
+    "animation.npc.general",
+    "animation.npc.get_in_bed",
+    "animation.npc.move",
+    "animation.npc.raise_arms"
+  ],
+  "ocelot.animation.json": [
+    "animation.ocelot.baby_transform",
+    "animation.ocelot.sit",
+    "animation.ocelot.sneak",
+    "animation.ocelot.sprint",
+    "animation.ocelot.walk"
+  ],
+  "ocelot.animations.v1.0.json": [
+    "animation.ocelot_v1.0.baby_transform",
+    "animation.ocelot_v1.0.setup",
+    "animation.ocelot_v1.0.sit",
+    "animation.ocelot_v1.0.sneak",
+    "animation.ocelot_v1.0.sprint",
+    "animation.ocelot_v1.0.walk"
+  ],
+  "panda.animation.json": [
+    "animation.panda.baby_lying",
+    "animation.panda.baby_rolling",
+    "animation.panda.baby_sitting",
+    "animation.panda.baby_transform",
+    "animation.panda.lying",
+    "animation.panda.rolling",
+    "animation.panda.sitting",
+    "animation.panda.sneezing",
+    "animation.panda.unhappy"
+  ],
+  "parrot.animation.json": [
+    "animation.parrot.base",
+    "animation.parrot.dance",
+    "animation.parrot.flying",
+    "animation.parrot.moving",
+    "animation.parrot.sitting",
+    "animation.parrot.standing"
+  ],
+  "phantom.animation.json": [
+    "animation.phantom.base_pose",
+    "animation.phantom.move"
+  ],
+  "pig.animation.json": [
+    "animation.pig.baby_transform",
+    "animation.pig.setup",
+    "animation.pig.setup.v1.0"
+  ],
+  "piglin.animation.json": [
+    "animation.piglin.admire",
+    "animation.piglin.celebrate_hunt",
+    "animation.piglin.celebrate_hunt_special",
+    "animation.piglin.crossbow.charge",
+    "animation.piglin.crossbow.hold",
+    "animation.piglin.hand.attack",
+    "animation.piglin.move",
+    "animation.piglin.sword.attack"
+  ],
+  "pillager.animation.json": [
+    "animation.pillager.crossbow.charge",
+    "animation.pillager.crossbow.hold"
+  ],
+  "player.animation.json": [
+    "animation.player.attack.positions",
+    "animation.player.attack.rotations",
+    "animation.player.base_pose.upside_down",
+    "animation.player.bob",
+    "animation.player.bob.stationary",
+    "animation.player.bow_equipped",
+    "animation.player.cape",
+    "animation.player.crawl",
+    "animation.player.crawl.legs",
+    "animation.player.crawl.no_right_arm",
+    "animation.player.crossbow_equipped",
+    "animation.player.crossbow_hold",
+    "animation.player.glide",
+    "animation.player.holding",
+    "animation.player.holding.zombie",
+    "animation.player.holding_heavy_core",
+    "animation.player.look_at_target.inverted",
+    "animation.player.look_at_target.ui",
+    "animation.player.melee_spear_attack",
+    "animation.player.move.arms",
+    "animation.player.move.arms.single",
+    "animation.player.move.arms.stationary",
+    "animation.player.move.arms.statue_of_liberty",
+    "animation.player.move.arms.zombie",
+    "animation.player.move.legs",
+    "animation.player.move.legs.inverted",
+    "animation.player.move.legs.single",
+    "animation.player.move.legs.stationary",
+    "animation.player.riding.arms",
+    "animation.player.riding.arms.zombie",
+    "animation.player.riding.legs",
+    "animation.player.riding.root",
+    "animation.player.shield_block_main_hand",
+    "animation.player.shield_block_off_hand",
+    "animation.player.sleeping",
+    "animation.player.sneaking",
+    "animation.player.sneaking.inverted",
+    "animation.player.swim",
+    "animation.player.swim.legs",
+    "animation.player.swim.legs.single",
+    "animation.player.swim.legs.stationary",
+    "animation.player.swim.no_right_arm"
+  ],
+  "player_firstperson.animation.json": [
+    "animation.player.first_person.attack_rotation",
+    "animation.player.first_person.attack_rotation_item",
+    "animation.player.first_person.base_pose",
+    "animation.player.first_person.breathing_bob",
+    "animation.player.first_person.crossbow_equipped",
+    "animation.player.first_person.crossbow_hold",
+    "animation.player.first_person.empty_hand",
+    "animation.player.first_person.map_hold",
+    "animation.player.first_person.map_hold_attack",
+    "animation.player.first_person.map_hold_main_hand",
+    "animation.player.first_person.map_hold_off_hand",
+    "animation.player.first_person.melee_spear_attack",
+    "animation.player.first_person.melee_spear_hold",
+    "animation.player.first_person.melee_spear_use",
+    "animation.player.first_person.shield_block",
+    "animation.player.first_person.swap_item",
+    "animation.player.first_person.vr_attack_rotation",
+    "animation.player.first_person.walk"
+  ],
+  "polar_bear.animation.json": [
+    "animation.polarbear.baby_transform",
+    "animation.polarbear.move"
+  ],
+  "pufferfish.animation.json": [
+    "animation.pufferfish.flop",
+    "animation.pufferfish.swim"
+  ],
+  "quadruped.animation.json": [
+    "animation.quadruped.walk"
+  ],
+  "rabbit.animation.json": [
+    "animation.rabbit.baby_transform",
+    "animation.rabbit.move"
+  ],
+  "rabbit.v2.animation.json": [
+    "animation.rabbit.idle_head_tilt",
+    "animation.rabbit.move.baby",
+    "animation.rabbit.move.v2"
+  ],
+  "ravager.animation.json": [
+    "animation.ravager.biting",
+    "animation.ravager.idle_mouth",
+    "animation.ravager.roaring",
+    "animation.ravager.stunned",
+    "animation.ravager.walk"
+  ],
+  "salmon.animation.json": [
+    "animation.salmon.flop",
+    "animation.salmon.swim"
+  ],
+  "sheep.animation.json": [
+    "animation.sheep.baby_transform",
+    "animation.sheep.grazing.v2",
+    "animation.sheep.setup.v2"
+  ],
+  "shield.animation.json": [
+    "animation.shield.wield_main_hand_first_person",
+    "animation.shield.wield_main_hand_first_person_blocking",
+    "animation.shield.wield_off_hand_first_person",
+    "animation.shield.wield_off_hand_first_person_blocking",
+    "animation.shield.wield_third_person"
+  ],
+  "shulker.animation.json": [
+    "animation.shulker.facing",
+    "animation.shulker.move"
+  ],
+  "shulker.animations.v1.0.json": [
+    "animation.shulker.facing.v1.0",
+    "animation.shulker.move.v1.0"
+  ],
+  "shulker_bullet.animation.json": [
+    "animation.shulker_bullet.move"
+  ],
+  "silverfish.animation.json": [
+    "animation.silverfish.move"
+  ],
+  "skeleton.animation.json": [
+    "animation.skeleton.attack"
+  ],
+  "skeleton.animations.v1.0.json": [
+    "animation.humanoid.attack.rotations.v1.0",
+    "animation.humanoid.base_pose.v1.0",
+    "animation.humanoid.big_head.v1.0",
+    "animation.humanoid.bob.v1.0",
+    "animation.humanoid.bow_and_arrow.v1.0",
+    "animation.humanoid.brandish_spear.v1.0",
+    "animation.humanoid.charging.v1.0",
+    "animation.humanoid.damage_nearby_mobs.v1.0",
+    "animation.humanoid.holding.v1.0",
+    "animation.humanoid.look_at_target.default.v1.0",
+    "animation.humanoid.look_at_target.gliding.v1.0",
+    "animation.humanoid.look_at_target.swimming.v1.0",
+    "animation.humanoid.move.v1.0",
+    "animation.humanoid.riding.arms.v1.0",
+    "animation.humanoid.riding.legs.v1.0",
+    "animation.humanoid.sneaking.v1.0",
+    "animation.humanoid.swimming.v1.0",
+    "animation.humanoid.use_item_progress.v1.0",
+    "animation.skeleton.attack.v1.0"
+  ],
+  "sniffer.animation.json": [
+    "animation.sniffer.baby_transform",
+    "animation.sniffer.dig",
+    "animation.sniffer.feeling_happy",
+    "animation.sniffer.longsniff",
+    "animation.sniffer.search",
+    "animation.sniffer.sniffsniff",
+    "animation.sniffer.stand_up",
+    "animation.sniffer.walk"
+  ],
+  "snow_golem.animation.json": [
+    "animation.snowgolem.move.v1.8"
+  ],
+  "snow_golem.animations.v1.0.json": [
+    "animation.snowgolem.arms",
+    "animation.snowgolem.move"
+  ],
+  "spear.animation.json": [
+    "animation.spear.held_first_person",
+    "animation.spear.held_third_person",
+    "animation.spear.hit"
+  ],
+  "spider.animation.json": [
+    "animation.spider.default_leg_pose",
+    "animation.spider.look_at_target",
+    "animation.spider.walk"
+  ],
+  "spyglass.animation.json": [
+    "animation.spyglass.holding",
+    "animation.spyglass.scoping"
+  ],
+  "squid.animation.json": [
+    "animation.squid.move",
+    "animation.squid.rotate"
+  ],
+  "strider.animation.json": [
+    "animation.strider.baby.bristle_flow",
+    "animation.strider.baby.walk",
+    "animation.strider.bristle_flow",
+    "animation.strider.look_at_target.default",
+    "animation.strider.walk"
+  ],
+  "tadpole.animation.json": [
+    "animation.tadpole.swim"
+  ],
+  "trident.animation.json": [
+    "animation.trident.wield_first_person",
+    "animation.trident.wield_first_person_raise",
+    "animation.trident.wield_first_person_raise_shake",
+    "animation.trident.wield_first_person_riptide",
+    "animation.trident.wield_third_person",
+    "animation.trident.wield_third_person_raise"
+  ],
+  "tripod_camera.animation.json": [
+    "animation.tripod_camera.neutral"
+  ],
+  "tropicalfish.animation.json": [
+    "animation.tropicalfish.flop",
+    "animation.tropicalfish.swim"
+  ],
+  "turtle.animation.json": [
+    "animation.turtle.general",
+    "animation.turtle.ground_move",
+    "animation.turtle.move"
+  ],
+  "vex.animation.json": [
+    "animation.vex.charge",
+    "animation.vex.idle"
+  ],
+  "villager.animation.json": [
+    "animation.villager.baby_transform",
+    "animation.villager.general",
+    "animation.villager.general.v1.0",
+    "animation.villager.get_in_bed",
+    "animation.villager.move",
+    "animation.villager.raise_arms"
+  ],
+  "vindicator.animation.json": [
+    "animation.vindicator.attack",
+    "animation.vindicator.base",
+    "animation.vindicator.hand_attack",
+    "animation.vindicator.riding.arms",
+    "animation.vindicator.riding.legs",
+    "animation.vindicator.walk"
+  ],
+  "warden.animation.json": [
+    "animation.warden.attack",
+    "animation.warden.bob",
+    "animation.warden.dig",
+    "animation.warden.emerge",
+    "animation.warden.look_at_target.default",
+    "animation.warden.move",
+    "animation.warden.roar",
+    "animation.warden.shiver",
+    "animation.warden.sniff",
+    "animation.warden.sonic_boom"
+  ],
+  "wind_charge.animation.json": [
+    "animation.wind_charge.rotate"
+  ],
+  "witch.animation.json": [
+    "animation.witch.general"
+  ],
+  "wither_boss.animation.json": [
+    "animation.wither_boss.look_at_target",
+    "animation.wither_boss.move",
+    "animation.wither_boss.scale"
+  ],
+  "wither_skeleton.animation.json": [
+    "animation.wither_skeleton.attack"
+  ],
+  "wither_skull.animation.json": [
+    "animation.wither_skull.move"
+  ],
+  "wolf.animations.json": [
+    "animation.wolf.angry",
+    "animation.wolf.baby_scaling",
+    "animation.wolf.baby_sitting",
+    "animation.wolf.head_rot_z",
+    "animation.wolf.leg_default",
+    "animation.wolf.setup",
+    "animation.wolf.shaking",
+    "animation.wolf.sitting",
+    "animation.wolf.tail_default"
+  ],
+  "zombie.animation.json": [
+    "animation.zombie.attack_bare_hand",
+    "animation.zombie.baby_attack_bare_hand",
+    "animation.zombie.swimming"
+  ]
+}

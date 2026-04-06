@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkinApex</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="boot-overlay" class="boot-overlay">
+        <div class="boot-overlay-inner">
+            <svg class="boot-logo" width="52" height="52" viewBox="0 0 18 18" aria-hidden="true">
+                <polygon points="9,1 16,5 16,13 9,17 2,13 2,5" fill="none" stroke="#007acc" stroke-width="1.5"/>
+                <polygon points="9,5 13,7.5 13,11.5 9,14 5,11.5 5,7.5" fill="#007acc" opacity="0.75"/>
+            </svg>
+        </div>
+    </div>
+    <div id="app">
+        <!-- Title Bar with Menu -->
+        <div class="titlebar" id="titlebar">
+            <div class="titlebar-drag">
+                <svg class="app-logo" width="18" height="18" viewBox="0 0 18 18">
+                    <polygon points="9,1 16,5 16,13 9,17 2,13 2,5" fill="none" stroke="#007acc" stroke-width="1.5"/>
+                    <polygon points="9,5 13,7.5 13,11.5 9,14 5,11.5 5,7.5" fill="#007acc" opacity="0.6"/>
+                </svg>
+                <span class="app-name">SkinApex</span>
+            </div>
+            <!-- Menu Bar (inline in titlebar) -->
+            <div class="menubar" id="menubar">
+                <div class="menu-item" data-menu="file">
+                    <span class="menu-trigger" data-i18n="menu.file">File</span>
+                    <div class="menu-dropdown" data-dropdown="file">
+                        <button class="menu-action" data-action="open-file" type="button">
+                            <span data-i18n="menu.openFile">Open File</span>
+                            <span class="menu-shortcut">Ctrl+O</span>
+                        </button>
+                        <button class="menu-action" data-action="open-folder" type="button">
+                            <span data-i18n="menu.openFolder">Open Folder</span>
+                            <span class="menu-shortcut"></span>
+                        </button>
+                        <div class="menu-separator"></div>
+                        <button class="menu-action" data-action="save" type="button">
+                            <span data-i18n="menu.save">Save</span>
+                            <span class="menu-shortcut">Ctrl+S</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="menu-item" data-menu="view">
+                    <span class="menu-trigger" data-i18n="menu.view">View</span>
+                    <div class="menu-dropdown" data-dropdown="view">
+                        <button class="menu-action" data-action="toggle-sidebar" type="button">
+                            <span data-i18n="menu.toggleSidebar">Toggle Sidebar</span>
+                            <span class="menu-shortcut">Ctrl+B</span>
+                        </button>
+                        <button class="menu-action" data-action="toggle-right" type="button">
+                            <span data-i18n="menu.togglePanel">Toggle Panel</span>
+                            <span class="menu-shortcut"></span>
+                        </button>
+                    </div>
+                </div>
+                <div class="menu-item" data-menu="tools">
+                    <span class="menu-trigger" data-i18n="menu.tools">Tools</span>
+                    <div class="menu-dropdown" data-dropdown="tools">
+                        <button class="menu-action" data-action="encrypt" type="button">
+                            <span data-i18n="menu.encryptPack">Encrypt Pack</span>
+                            <span class="menu-shortcut"></span>
+                        </button>
+                        <button class="menu-action" data-action="decrypt" type="button">
+                            <span data-i18n="menu.decryptPack">Decrypt Pack</span>
+                            <span class="menu-shortcut"></span>
+                        </button>
+                    </div>
+                </div>
+                <div class="menu-item" data-menu="help">
+                    <span class="menu-trigger" data-i18n="menu.help">Help</span>
+                    <div class="menu-dropdown" data-dropdown="help">
+                        <button class="menu-action" data-action="about" type="button">
+                            <span data-i18n="menu.about">About SkinApex</span>
+                            <span class="menu-shortcut"></span>
+                        </button>
+                        <button class="menu-action" data-action="shortcuts" type="button">
+                            <span data-i18n="menu.shortcuts">Keyboard Shortcuts</span>
+                            <span class="menu-shortcut">Ctrl+K</span>
+                        </button>
+                        <button class="menu-action" data-action="rig-rules" type="button">
+                            <span data-i18n="menu.rigRules">Bedrock Rig Rules</span>
+                            <span class="menu-shortcut"></span>
+                        </button>
+                        <button class="menu-action" data-action="tutorial" type="button">
+                            <span data-i18n="menu.tutorial">First Steps Tutorial</span>
+                            <span class="menu-shortcut"></span>
+                        </button>
+                    </div>
+                </div>
+                <div class="menu-item" data-menu="language">
+                    <span class="menu-trigger" data-i18n="menu.language">Language</span>
+                    <div class="menu-dropdown" data-dropdown="language">
+                        <button class="menu-action" data-action="set-lang-en" type="button">
+                            <span data-i18n="menu.lang.en">English</span>
+                            <span class="menu-shortcut"></span>
+                        </button>
+                        <button class="menu-action" data-action="set-lang-zh" type="button">
+                            <span data-i18n="menu.lang.zh">简体中文</span>
+                            <span class="menu-shortcut"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Bar -->
+        <div class="tabbar" id="tabbar"></div>
+
+        <!-- Content Area -->
+        <div id="content">
+            <!-- Welcome Page (default view) -->
+            <div id="welcome" class="welcome">
+                <div class="welcome-inner">
+                    <div class="welcome-logo-wrap">
+                        <svg class="welcome-logo" viewBox="0 0 80 80" width="80" height="80">
+                            <defs>
+                                <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+                                    <stop offset="0%" stop-color="#007acc"/>
+                                    <stop offset="100%" stop-color="#00b4d8"/>
+                                </linearGradient>
+                            </defs>
+                            <polygon points="40,2 74,16 74,56 40,78 6,56 6,16" fill="url(#lg)" opacity="0.15"/>
+                            <polygon points="40,2 74,16 74,56 40,78 6,56 6,16" fill="none" stroke="url(#lg)" stroke-width="2"/>
+                            <polygon points="40,16 58,26 58,46 40,56 22,46 22,26" fill="url(#lg)" opacity="0.3"/>
+                            <polygon points="40,16 58,26 58,46 40,56 22,46 22,26" fill="none" stroke="url(#lg)" stroke-width="1.5"/>
+                        </svg>
+                    </div>
+                    <h1 class="welcome-title">SkinApex</h1>
+                    <p class="welcome-subtitle" data-i18n="welcome.subtitle">Minecraft Bedrock Edition Skin Pack Manager</p>
+
+                    <div class="welcome-drop" id="welcome-drop">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#007acc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <p class="drop-text" data-i18n="welcome.dropText">Drag & drop files here</p>
+                        <p class="drop-hint" data-i18n="welcome.dropHint">.mcpack / .zip / any file / folder</p>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+                            <button id="btn-open" class="btn-primary" data-i18n="welcome.openFile">Open File</button>
+                            <button id="btn-open-folder" class="btn-primary" style="background:var(--bg-active);color:var(--text-bright);" data-i18n="welcome.openFolder">Open Folder</button>
+                        </div>
+                    </div>
+
+                    <div class="welcome-shortcuts">
+                        <kbd>Ctrl</kbd>+<kbd>O</kbd> <span data-i18n="welcome.shortcut">Open File</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Workspace (shown when tabs exist) -->
+            <div id="workspace" class="workspace" style="display:none">
+                <!-- Activity Bar -->
+                <div class="activity-bar">
+                    <button class="act-btn active" data-panel="sidebar" title="Explorer">
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+                        </svg>
+                    </button>
+                    <button class="act-btn active" data-panel="right" title="Skins & Outline">
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                            <line x1="15" y1="3" x2="15" y2="21"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Sidebar (File Tree) -->
+                <div class="sidebar" id="sidebar">
+                    <div class="panel-header">
+                        <span>EXPLORER</span>
+                        <div class="panel-header-actions">
+                            <button id="btn-explorer-new-file" class="panel-header-icon-btn" type="button" title="New File" aria-label="New File">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                    <polyline points="14 2 14 8 20 8"/>
+                                    <line x1="12" y1="12" x2="12" y2="18"/>
+                                    <line x1="9" y1="15" x2="15" y2="15"/>
+                                </svg>
+                            </button>
+                            <button id="btn-explorer-new-folder" class="panel-header-icon-btn" type="button" title="New Folder" aria-label="New Folder">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v2H3z"/>
+                                    <path d="M3 10h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                                    <line x1="12" y1="12" x2="12" y2="18"/>
+                                    <line x1="9" y1="15" x2="15" y2="15"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="sidebar-body" id="file-tree"></div>
+                </div>
+                <div class="panel-resizer panel-resizer-sidebar" id="sidebar-resizer" aria-hidden="true"></div>
+
+                <!-- Main Editor / Preview Area -->
+                <div class="main-editor" id="main-editor">
+                    <div id="editor-content"></div>
+                </div>
+                <div class="panel-resizer panel-resizer-right" id="right-resizer" aria-hidden="true"></div>
+
+                <!-- Right Panel -->
+                <div class="right-panel" id="right-panel">
+                    <div class="right-tabs">
+                        <span class="right-tab-title">SKINS</span>
+                    </div>
+                    <div class="right-body" id="right-body">
+                        <div id="skin-list-panel" class="rtab-content"></div>
+                    </div>
+                    <div class="panel-splitter" id="right-body-splitter" aria-hidden="true"></div>
+                    <div class="detail-tabs" id="detail-tabs" style="display:none">
+                        <button class="detail-tab active" data-detail-tab="bone" type="button">Bone</button>
+                        <button class="detail-tab" data-detail-tab="skin" type="button">Skin Properties</button>
+                    </div>
+                    <!-- Outline Panel (shows when a skin is selected) -->
+                    <div id="outline-panel" class="outline-section" style="display:none">
+                        <div class="outline-section-header">
+                            <span class="outline-section-title">OUTLINE</span>
+                            <span class="outline-section-geo-name" id="outline-geo-name"></span>
+                        </div>
+                        <div class="outline-section-body" id="outline-body"></div>
+                    </div>
+                    <div class="panel-splitter" id="detail-splitter" aria-hidden="true"></div>
+                    <!-- Bone Editor Panel (shows when a bone is selected) -->
+                    <div id="bone-editor-panel" class="bone-editor-panel" style="display:none"></div>
+                    <div id="skin-properties-panel" class="skin-properties-panel" style="display:none"></div>
+                </div>
+
+                <div class="mobile-nav" id="mobile-nav" aria-label="Mobile Navigation">
+                    <button class="mobile-nav-btn active" data-mobile-panel="preview" type="button">
+                        <span data-i18n="mobile.preview">Preview</span>
+                    </button>
+                    <button class="mobile-nav-btn" data-mobile-panel="skins" type="button">
+                        <span data-i18n="mobile.sidebar">Sidebar</span>
+                    </button>
+                    <button class="mobile-nav-btn" data-mobile-panel="files" type="button">
+                        <span data-i18n="mobile.explorer">Explorer</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="statusbar">
+            <div class="status-left">
+                <span id="status-msg">Ready</span>
+            </div>
+            <div class="status-right">
+                <span id="status-info"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Drop Overlay -->
+    <div id="drop-overlay" class="drop-overlay" style="display:none">
+        <div class="drop-overlay-inner">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#007acc" stroke-width="1.5">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <p data-i18n="drop.openProject">Drop to open project</p>
+        </div>
+    </div>
+
+    <!-- Hidden File Input -->
+    <input type="file" id="file-input" style="display:none" multiple>
+
+    <!-- Hidden Folder Input -->
+    <input type="file" id="folder-input" style="display:none" webkitdirectory>
+
+    <!-- JSZip (CDN) -->
+    <script src="vendor/jszip/jszip.min.js"></script>
+
+    <!-- Three.js (CDN) for 3D skin preview -->
+    <script src="vendor/three/three.min.js"></script>
+    <script src="vendor/three/TransformControls.js"></script>
+
+    <!-- SkinApex Modules (load order matters) -->
+    <script src="js/constants.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/i18n.js"></script>
+    <script src="js/vendor/molang.umd.js"></script>
+    <script src="js/logger.js"></script>
+    <script src="js/project.js"></script>
+    <script src="js/tab-manager.js"></script>
+    <script src="js/explorer.js"></script>
+    <script src="js/skin-list.js"></script>
+    <script src="js/model-viewer.js"></script>
+    <script src="js/outline.js"></script>
+    <script src="js/bone-editor.js"></script>
+    <script src="js/modal-manager.js"></script>
+    <script src="js/skin-properties.js"></script>
+    <script src="js/preview-panel.js"></script>
+    <script src="js/statusbar.js"></script>
+    <script src="js/crypt-wasm.js"></script>
+    <script src="js/crypt.js"></script>
+    <script src="js/app.js"></script>
+
+    <!-- Bootstrap -->
+    <script>
+        window.addEventListener('load', function () {
+            var bootOverlay = document.getElementById('boot-overlay');
+            var translate = function (key, fallback) {
+                try {
+                    if (window.SkinApex && window.SkinApex.I18n && typeof window.SkinApex.I18n.t === 'function') {
+                        return window.SkinApex.I18n.t(key, fallback);
+                    }
+                } catch (e) {}
+                return fallback != null ? fallback : key;
+            };
+            var format = function (key, vars, fallback) {
+                try {
+                    if (window.SkinApex && window.SkinApex.I18n && typeof window.SkinApex.I18n.format === 'function') {
+                        return window.SkinApex.I18n.format(key, vars, fallback);
+                    }
+                } catch (e) {}
+                var text = fallback != null ? fallback : key;
+                if (!vars) return text;
+                return text.replace(/\{(\w+)\}/g, function (_, name) {
+                    return Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : _;
+                });
+            };
+            if (window.SkinApex && window.SkinApex.I18n) {
+                window.SkinApex.I18n.apply(document);
+            }
+            if (window.SkinApex && window.SkinApex.WasmCrypto) {
+                window.SkinApex.WasmCrypto.prewarm();
+            }
+            var showBootError = function (err) {
+                console.error('SkinApex bootstrap failed:', err);
+                if (!bootOverlay) return;
+                bootOverlay.innerHTML =
+                    '<div class="boot-overlay-inner boot-overlay-error">' +
+                        '<div class="boot-error-art" aria-hidden="true">' +
+                            '<svg class="boot-error-art-logo" viewBox="0 0 18 18" width="160" height="160">' +
+                                '<polygon points="9,1 16,5 16,13 9,17 2,13 2,5" fill="none" stroke="currentColor" stroke-width="1.2"/>' +
+                                '<polygon points="9,5 13,7.5 13,11.5 9,14 5,11.5 5,7.5" fill="currentColor" opacity="0.55"/>' +
+                            '</svg>' +
+                            '<svg class="boot-error-art-badge" viewBox="0 0 24 24" width="52" height="52">' +
+                                '<path d="M12 3.2 21 19H3L12 3.2Z" fill="currentColor" opacity="0.92"/>' +
+                                '<rect x="11" y="8" width="2" height="6.2" rx="1" fill="#1e1e1e"/>' +
+                                '<circle cx="12" cy="17.2" r="1.2" fill="#1e1e1e"/>' +
+                            '</svg>' +
+                        '</div>' +
+                        '<div class="boot-overlay-title">' + translate('boot.error.title', 'SkinApex failed to start') + '</div>' +
+                        '<ol class="boot-error-steps">' +
+                            '<li>' + translate('boot.error.tryReload', 'Try reloading the page first.') + '</li>' +
+                            '<li>' + translate('boot.error.clearCache', 'If reloading does not work, clear the browser cache and load the page again.') + '</li>' +
+                            '<li>' + translate('boot.error.report', 'If the problem still happens, report this error to the developer together with the message below.') + '</li>' +
+                        '</ol>' +
+                        '<div class="boot-overlay-hint">' + format('boot.error.details', { message: String(err && err.message ? err.message : err) }, 'Error: ' + String(err && err.message ? err.message : err)) + '</div>' +
+                        '<button type="button" class="boot-reload-btn" onclick="window.location.reload()">' + translate('boot.error.reload', 'Reload') + '</button>' +
+                    '</div>';
+            };
+
+            var requiredModules = [
+                'App',
+                'Logger',
+                'Project',
+                'TabManager',
+                'Explorer',
+                'SkinList',
+                'OutlinePanel',
+                'BoneEditor',
+                'ModalManager',
+                'SkinPropertiesPanel',
+                'PreviewPanel',
+                'StatusBar',
+                'Utils',
+                'I18n',
+                'CryptManager',
+                'WasmCrypto'
+            ];
+            var requiredGlobals = [
+                { name: 'JSZip', ok: function () { return typeof window.JSZip !== 'undefined'; } },
+                { name: 'THREE', ok: function () { return typeof window.THREE !== 'undefined'; } },
+                {
+                    name: 'THREE.TransformControls',
+                    ok: function () {
+                        return !!(window.THREE && window.THREE.TransformControls);
+                    }
+                }
+            ];
+            var startWhenReady = function (attempt) {
+                var missingModules = requiredModules.filter(function (key) {
+                    return !(window.SkinApex && window.SkinApex[key]);
+                });
+                var missingGlobals = requiredGlobals.filter(function (entry) {
+                    try {
+                        return !entry.ok();
+                    } catch (e) {
+                        return true;
+                    }
+                }).map(function (entry) {
+                    return entry.name;
+                });
+                var missingDeps = missingModules.concat(missingGlobals);
+                if (missingDeps.length) {
+                    if (attempt < 40) {
+                        window.setTimeout(function () { startWhenReady(attempt + 1); }, 50);
+                        return;
+                    }
+                    showBootError(new Error('Missing startup dependencies: ' + missingDeps.join(', ')));
+                    return;
+                }
+                try {
+                    const app = new SkinApex.App();
+                    app.init();
+                    if (bootOverlay) bootOverlay.style.display = 'none';
+                } catch (err) {
+                    showBootError(err);
+                }
+            };
+
+            startWhenReady(0);
+        });
+    </script>
+</body>
+</html>
