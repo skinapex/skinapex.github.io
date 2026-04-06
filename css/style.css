@@ -436,11 +436,13 @@ html, body {
 /* --- Welcome Page --- */
 .welcome {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     width: 100%;
     height: 100%;
     background: var(--bg-main);
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 .welcome-inner {
     display: flex;
@@ -450,6 +452,8 @@ html, body {
     padding: 40px;
     max-width: 560px;
     width: 100%;
+    min-height: 100%;
+    justify-content: center;
 }
 .welcome-logo-wrap {
     margin-bottom: 8px;
@@ -3068,6 +3072,8 @@ body.outline-global-dragging * {
     .welcome-inner {
         padding: 24px 16px;
         max-width: 100%;
+        min-height: auto;
+        justify-content: flex-start;
     }
 
     .welcome-drop {
