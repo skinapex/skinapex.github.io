@@ -22,6 +22,10 @@
             this._toolButtons = null;
             this._transformHint = null;
             this._mode = '3d';
+            this._uvToolMode = 'edit';
+            this._uvZoomLevels = [0.25, 0.5, 1, 2, 4, 8, 12, 16];
+            this._uvZoomIndex = 2;
+            this._uvPan = { x: 0, y: 0 };
             this._uvRenderToken = 0;
             this._selectedUvRect = null;
             this._onAnimationStateChanged = null;
@@ -100,14 +104,44 @@
             btnOrigin.className = 'preview-mode-btn';
             btnOrigin.type = 'button';
             btnOrigin.textContent = I18n.t('preview.tool.origin');
+            const btnZoomIn = document.createElement('button');
+            btnZoomIn.className = 'preview-mode-btn';
+            btnZoomIn.type = 'button';
+            btnZoomIn.textContent = I18n.t('preview.tool.zoomIn');
+            btnZoomIn.classList.add('preview-mode-btn-compact');
+            const btnZoomOut = document.createElement('button');
+            btnZoomOut.className = 'preview-mode-btn';
+            btnZoomOut.type = 'button';
+            btnZoomOut.textContent = I18n.t('preview.tool.zoomOut');
+            btnZoomOut.classList.add('preview-mode-btn-compact');
+            const btnEdit = document.createElement('button');
+            btnEdit.className = 'preview-mode-btn active';
+            btnEdit.type = 'button';
+            btnEdit.textContent = I18n.t('preview.tool.edit');
+            const btnPan = document.createElement('button');
+            btnPan.className = 'preview-mode-btn';
+            btnPan.type = 'button';
+            btnPan.textContent = I18n.t('preview.tool.pan');
             modeTabs.appendChild(viewTabs);
             tools.appendChild(btnMove);
             tools.appendChild(btnRotate);
             tools.appendChild(btnOrigin);
+            tools.appendChild(btnZoomIn);
+            tools.appendChild(btnZoomOut);
+            tools.appendChild(btnEdit);
+            tools.appendChild(btnPan);
             modeTabs.appendChild(tools);
             this.el.appendChild(modeTabs);
             this._modeButtons = { btn3d: btn3d, btnUv: btnUv };
-            this._toolButtons = { btnMove: btnMove, btnRotate: btnRotate, btnOrigin: btnOrigin };
+            this._toolButtons = {
+                btnMove: btnMove,
+                btnRotate: btnRotate,
+                btnOrigin: btnOrigin,
+                btnZoomIn: btnZoomIn,
+                btnZoomOut: btnZoomOut,
+                btnEdit: btnEdit,
+                btnPan: btnPan
+            };
 
             const animBar = document.createElement('div');
             animBar.className = 'preview-anim-bar';
@@ -129,7 +163,7 @@
 
             this._toolBadge = document.createElement('div');
             this._toolBadge.className = 'preview-tool-badge';
-            this._toolBadge.textContent = I18n.t('preview.tool.moveBadge');
+            this._toolBadge.textContent = I18n.t('preview.tool.uvEditBadge');
             this._viewerContainer.appendChild(this._toolBadge);
 
             this._uvContainer = document.createElement('div');
@@ -145,6 +179,10 @@
             btnMove.addEventListener('click', () => this._setGizmoMode('translate'));
             btnRotate.addEventListener('click', () => this._setGizmoMode('rotate'));
             btnOrigin.addEventListener('click', () => this._setGizmoMode('offset'));
+            btnZoomIn.addEventListener('click', () => this._adjustUvZoom(1));
+            btnZoomOut.addEventListener('click', () => this._adjustUvZoom(-1));
+            btnEdit.addEventListener('click', () => this._setUvToolMode('edit'));
+            btnPan.addEventListener('click', () => this._setUvToolMode('pan'));
             // If no geometry, show fallback 2D texture
             if (!skin.geometry || !project.geometries || !project.geometries[skin.geometry]) {
                 await this._showTextureFallback(skin, project);
@@ -162,6 +200,7 @@
                 });
             }
             this._setGizmoMode('translate');
+            this._syncToolUi();
 
         }
 
@@ -397,6 +436,10 @@
                 this._modeButtons.btn3d.classList.toggle('active', mode === '3d');
                 this._modeButtons.btnUv.classList.toggle('active', mode === 'uv');
             }
+            if (mode === '3d' && this._modelViewer) {
+                this._modelViewer.setGizmoMode('translate');
+            }
+            this._syncToolUi();
         }
 
         _setGizmoMode(mode) {
@@ -413,6 +456,77 @@
                     ? I18n.t('preview.tool.rotateBadge')
                     : (mode === 'offset' ? I18n.t('preview.tool.originBadge') : I18n.t('preview.tool.moveBadge'));
                 this._toolBadge.classList.toggle('is-origin', mode === 'offset');
+            }
+        }
+
+        _setUvToolMode(mode) {
+            this._uvToolMode = mode === 'pan' ? 'pan' : 'edit';
+            this._syncToolUi();
+        }
+
+        _adjustUvZoom(step) {
+            var nextIndex = this._uvZoomIndex + step;
+            if (nextIndex < 0) nextIndex = 0;
+            if (nextIndex >= this._uvZoomLevels.length) nextIndex = this._uvZoomLevels.length - 1;
+            if (nextIndex === this._uvZoomIndex) return;
+            this._uvZoomIndex = nextIndex;
+            if (this._selectedSkin && this._currentProject && this._mode === 'uv') {
+                this._renderUvPreview(this._selectedSkin, this._currentProject, this._uvRenderToken);
+            }
+        }
+
+        _zoomUvAt(step, anchorScreen, canvas, baseScale) {
+            var currentZoom = this._uvZoomLevels[this._uvZoomIndex] || 1;
+            var nextIndex = this._uvZoomIndex + step;
+            if (nextIndex < 0) nextIndex = 0;
+            if (nextIndex >= this._uvZoomLevels.length) nextIndex = this._uvZoomLevels.length - 1;
+            if (nextIndex === this._uvZoomIndex) return;
+
+            var nextZoom = this._uvZoomLevels[nextIndex] || currentZoom;
+            var currentPixelsPerUnit = baseScale * currentZoom;
+            var nextPixelsPerUnit = baseScale * nextZoom;
+            var anchorUvX = this._uvPan.x + (anchorScreen.x / currentPixelsPerUnit);
+            var anchorUvY = this._uvPan.y + (anchorScreen.y / currentPixelsPerUnit);
+
+            this._uvZoomIndex = nextIndex;
+            this._uvPan.x = anchorUvX - (anchorScreen.x / nextPixelsPerUnit);
+            this._uvPan.y = anchorUvY - (anchorScreen.y / nextPixelsPerUnit);
+
+            if (this._selectedSkin && this._currentProject && this._mode === 'uv') {
+                this._renderUvPreview(this._selectedSkin, this._currentProject, this._uvRenderToken);
+            }
+        }
+
+        _syncToolUi() {
+            if (!this._toolButtons) return;
+            var isUv = this._mode === 'uv';
+            this._toolButtons.btnMove.style.display = isUv ? 'none' : '';
+            this._toolButtons.btnRotate.style.display = isUv ? 'none' : '';
+            this._toolButtons.btnOrigin.style.display = isUv ? 'none' : '';
+            this._toolButtons.btnZoomIn.style.display = isUv ? '' : 'none';
+            this._toolButtons.btnZoomOut.style.display = isUv ? '' : 'none';
+            this._toolButtons.btnEdit.style.display = isUv ? '' : 'none';
+            this._toolButtons.btnPan.style.display = isUv ? '' : 'none';
+            this._toolButtons.btnMove.disabled = isUv;
+            this._toolButtons.btnRotate.disabled = isUv;
+            this._toolButtons.btnOrigin.disabled = isUv;
+            this._toolButtons.btnZoomIn.classList.toggle('active', false);
+            this._toolButtons.btnZoomOut.classList.toggle('active', false);
+            this._toolButtons.btnEdit.classList.toggle('active', isUv && this._uvToolMode === 'edit');
+            this._toolButtons.btnPan.classList.toggle('active', isUv && this._uvToolMode === 'pan');
+            this._toolButtons.btnZoomIn.disabled = !isUv;
+            this._toolButtons.btnZoomOut.disabled = !isUv;
+            this._toolButtons.btnEdit.disabled = !isUv;
+            this._toolButtons.btnPan.disabled = !isUv;
+            if (isUv) {
+                this._toolButtons.btnZoomOut.disabled = this._uvZoomIndex <= 0;
+                this._toolButtons.btnZoomIn.disabled = this._uvZoomIndex >= this._uvZoomLevels.length - 1;
+            }
+            if (this._toolBadge) {
+                if (isUv) {
+                    this._toolBadge.textContent = this._uvToolMode === 'pan' ? I18n.t('preview.tool.uvPanBadge') : I18n.t('preview.tool.uvEditBadge');
+                    this._toolBadge.classList.remove('is-origin');
+                }
             }
         }
 
@@ -446,7 +560,7 @@
         }
 
         async _renderUvPreview(skin, project, token) {
-            if (!this._uvContainer || this._uvContainer.dataset.loaded === '1') return;
+            if (!this._uvContainer) return;
             try {
                 const geoData = skin && skin.geometry && project && project.geometries
                     ? project.geometries[skin.geometry]
@@ -480,47 +594,35 @@
                 const texW = img.width;
                 const texH = img.height;
                 const maxSide = Math.max(texW, texH);
-                const scale = Math.max(2, Math.floor(700 / maxSide));
-
-                const canvas = document.createElement('canvas');
-                canvas.className = 'preview-uv-canvas';
-                canvas.width = texW * scale;
-                canvas.height = texH * scale;
-
-                const ctx = canvas.getContext('2d');
-                ctx.imageSmoothingEnabled = false;
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                const baseScale = Math.max(2, Math.floor(700 / maxSide));
+                const requestedZoom = this._uvZoomLevels[this._uvZoomIndex] || 1;
+                const effectiveZoom = requestedZoom;
 
                 const triangles = this._collectUvTriangles(geoData, texW, texH);
                 const rects = this._collectEditableUvRects(geoData);
                 const drawCount = Math.min(triangles.length, 12000);
-                for (let i = 0; i < drawCount; i++) {
-                    const tri = triangles[i];
-                    const hue = Math.round((i * 360) / Math.max(1, drawCount));
-                    ctx.beginPath();
-                    ctx.moveTo(tri[0][0] * scale, tri[0][1] * scale);
-                    ctx.lineTo(tri[1][0] * scale, tri[1][1] * scale);
-                    ctx.lineTo(tri[2][0] * scale, tri[2][1] * scale);
-                    ctx.closePath();
-                    ctx.fillStyle = 'hsla(' + hue + ', 85%, 52%, 0.08)';
-                    ctx.strokeStyle = 'hsla(' + hue + ', 95%, 65%, 0.7)';
-                    ctx.lineWidth = 1;
-                    ctx.fill();
-                    ctx.stroke();
-                }
 
                 this._uvContainer.innerHTML = '';
                 const meta = document.createElement('div');
                 meta.className = 'preview-uv-meta';
-                meta.textContent = 'Texture ' + texW + 'x' + texH + ' | Triangles ' + triangles.length + (drawCount < triangles.length ? ' (showing ' + drawCount + ')' : '') + ' | UV Rects ' + rects.length;
+                meta.textContent = 'Texture ' + texW + 'x' + texH + ' | Zoom ' + effectiveZoom.toFixed(2) + 'x | Triangles ' + triangles.length + (drawCount < triangles.length ? ' (showing ' + drawCount + ')' : '') + ' | UV Rects ' + rects.length;
+                const viewport = document.createElement('div');
+                viewport.className = 'preview-uv-viewport';
+                const canvas = document.createElement('canvas');
+                canvas.className = 'preview-uv-canvas';
+                viewport.addEventListener('touchstart', function (e) { e.preventDefault(); }, { passive: false });
+                viewport.addEventListener('touchmove', function (e) { e.preventDefault(); }, { passive: false });
                 this._uvContainer.appendChild(meta);
-                this._uvContainer.appendChild(canvas);
-                this._wireUvEditor(canvas, ctx, img, scale, rects);
-                this._uvContainer.dataset.loaded = '1';
+                viewport.appendChild(canvas);
+                this._uvContainer.appendChild(viewport);
+                var viewportWidth = Math.max(320, viewport.clientWidth || 320);
+                var viewportHeight = Math.max(240, viewport.clientHeight || 240);
+                canvas.width = viewportWidth;
+                canvas.height = viewportHeight;
+                this._wireUvEditor(canvas, img, baseScale, effectiveZoom, rects, triangles, texW, texH);
             } catch (err) {
                 if (!this._uvContainer) return;
                 this._uvContainer.innerHTML = '<div class="panel-empty">' + Utils.escapeHtml(I18n.t('preview.empty.uvFailed')) + '</div>';
-                this._uvContainer.dataset.loaded = '1';
                 console.error('UV preview failed:', err);
             }
         }
@@ -605,21 +707,72 @@
                                 cube,
                                 face,
                                 x: faceUv.uv[0],
-                                y: this._flipUvRectY(faceUv.uv[1], size[1]),
+                                y: faceUv.uv[1],
                                 w: size[0],
                                 h: size[1]
                             });
                         });
                     } else if (Array.isArray(cube.uv)) {
-                        const size = cube.size || [0, 0, 0];
+                        const layout = this._getBoxUvRectLayout(cube, bone);
                         rects.push({
                             type: 'box',
+                            part: 'west',
                             bone,
                             cube,
-                            x: cube.uv[0],
-                            y: cube.uv[1],
-                            w: size[0] * 2 + size[2] * 2,
-                            h: size[1] + size[2]
+                            x: layout.west.x,
+                            y: layout.west.y,
+                            w: layout.west.w,
+                            h: layout.west.h
+                        });
+                        rects.push({
+                            type: 'box',
+                            part: 'north',
+                            bone,
+                            cube,
+                            x: layout.north.x,
+                            y: layout.north.y,
+                            w: layout.north.w,
+                            h: layout.north.h
+                        });
+                        rects.push({
+                            type: 'box',
+                            part: 'east',
+                            bone,
+                            cube,
+                            x: layout.east.x,
+                            y: layout.east.y,
+                            w: layout.east.w,
+                            h: layout.east.h
+                        });
+                        rects.push({
+                            type: 'box',
+                            part: 'south',
+                            bone,
+                            cube,
+                            x: layout.south.x,
+                            y: layout.south.y,
+                            w: layout.south.w,
+                            h: layout.south.h
+                        });
+                        rects.push({
+                            type: 'box',
+                            part: 'up',
+                            bone,
+                            cube,
+                            x: layout.up.x,
+                            y: layout.up.y,
+                            w: layout.up.w,
+                            h: layout.up.h
+                        });
+                        rects.push({
+                            type: 'box',
+                            part: 'down',
+                            bone,
+                            cube,
+                            x: layout.down.x,
+                            y: layout.down.y,
+                            w: layout.down.w,
+                            h: layout.down.h
                         });
                     }
                 }
@@ -628,19 +781,171 @@
             return rects;
         }
 
-        _wireUvEditor(canvas, ctx, img, scale, rects) {
+        _isBoxUvMirrored(cube, bone) {
+            return cube && cube.mirror !== undefined ? cube.mirror === true : !!(bone && bone.mirror === true);
+        }
+
+        _getBoxUvSize(cube) {
+            const size = cube.size || [0, 0, 0];
+            return {
+                sx: Math.max(0, Math.floor((Number(size[0]) || 0) + 0.0000001)),
+                sy: Math.max(0, Math.floor((Number(size[1]) || 0) + 0.0000001)),
+                sz: Math.max(0, Math.floor((Number(size[2]) || 0) + 0.0000001))
+            };
+        }
+
+        _getBoxUvRectLayout(cube, bone) {
+            const { sx, sy, sz } = this._getBoxUvSize(cube);
+            const baseX = Number(cube.uv && cube.uv[0]) || 0;
+            const baseY = Number(cube.uv && cube.uv[1]) || 0;
+            const layout = {
+                east: { x: baseX, y: baseY + sz, w: sz, h: sy },
+                west: { x: baseX + sz + sx, y: baseY + sz, w: sz, h: sy },
+                north: { x: baseX + sz, y: baseY + sz, w: sx, h: sy },
+                south: { x: baseX + (2 * sz) + sx, y: baseY + sz, w: sx, h: sy },
+                up: { x: baseX + sz, y: baseY, w: sx, h: sz },
+                down: { x: baseX + sz + sx, y: baseY, w: sx, h: sz }
+            };
+            if (this._isBoxUvMirrored(cube, bone)) {
+                const east = layout.east;
+                layout.east = layout.west;
+                layout.west = east;
+            }
+            return layout;
+        }
+
+        _getBoxUvPreviewRectLayout(cube, bone) {
+            const layout = this._getBoxUvRectLayout(cube, bone);
+            const preview = {};
+            const bleedMargin = 1 / 64;
+            Object.keys(layout).forEach((key) => {
+                const rect = layout[key];
+                preview[key] = {
+                    x: rect.x + bleedMargin,
+                    y: rect.y + bleedMargin,
+                    w: Math.max(0, rect.w - (bleedMargin * 2)),
+                    h: Math.max(0, rect.h - (bleedMargin * 2))
+                };
+            });
+            return preview;
+        }
+
+        _getDisplayedUvRect(rect) {
+            if (!rect || rect.type !== 'box') return rect;
+            const preview = this._getBoxUvPreviewRectLayout(rect.cube, rect.bone);
+            const next = preview[rect.part];
+            return next ? {
+                x: next.x,
+                y: next.y,
+                w: next.w,
+                h: next.h
+            } : rect;
+        }
+
+        _setBoxUvFromDraggedRect(rect, nextX, nextY) {
+            const cube = rect.cube;
+            const bone = rect.bone;
+            const { sx, sz } = this._getBoxUvSize(cube);
+            const mirrored = this._isBoxUvMirrored(cube, bone);
+            let baseX = Number(cube.uv && cube.uv[0]) || 0;
+            let baseY = Number(cube.uv && cube.uv[1]) || 0;
+
+            switch (rect.part) {
+                case 'west':
+                    baseX = mirrored ? nextX : (nextX - sz - sx);
+                    baseY = nextY - sz;
+                    break;
+                case 'north':
+                    baseX = nextX - sz;
+                    baseY = nextY - sz;
+                    break;
+                case 'east':
+                    baseX = mirrored ? (nextX - sz - sx) : nextX;
+                    baseY = nextY - sz;
+                    break;
+                case 'south':
+                    baseX = nextX - (2 * sz) - sx;
+                    baseY = nextY - sz;
+                    break;
+                case 'up':
+                    baseX = nextX - sz;
+                    baseY = nextY;
+                    break;
+                case 'down':
+                    baseX = nextX - sz - sx;
+                    baseY = nextY;
+                    break;
+            }
+
+            cube.uv = [baseX, baseY];
+            return this._getBoxUvRectLayout(cube, bone);
+        }
+
+        _syncBoxUvRects(rects, targetRect) {
+            const layout = this._getBoxUvRectLayout(targetRect.cube, targetRect.bone);
+            rects.forEach((rect) => {
+                if (rect.type !== 'box' || rect.cube !== targetRect.cube) return;
+                const next = layout[rect.part];
+                if (!next) return;
+                rect.x = next.x;
+                rect.y = next.y;
+                rect.w = next.w;
+                rect.h = next.h;
+            });
+        }
+
+        _wireUvEditor(canvas, img, baseScale, zoom, rects, triangles, texW, texH) {
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            const pixelsPerUnit = baseScale * zoom;
+            const visibleWidth = canvas.width / pixelsPerUnit;
+            const visibleHeight = canvas.height / pixelsPerUnit;
+            const clampPan = () => {
+                const maxX = Math.max(0, texW - visibleWidth);
+                const maxY = Math.max(0, texH - visibleHeight);
+                this._uvPan.x = Math.max(0, Math.min(maxX, this._uvPan.x));
+                this._uvPan.y = Math.max(0, Math.min(maxY, this._uvPan.y));
+            };
+            const worldToScreen = (u, v) => ({
+                x: (u - this._uvPan.x) * pixelsPerUnit,
+                y: (v - this._uvPan.y) * pixelsPerUnit
+            });
+            const screenToWorld = (x, y) => ({
+                x: this._uvPan.x + (x / pixelsPerUnit),
+                y: this._uvPan.y + (y / pixelsPerUnit)
+            });
+            const getLiveTriangles = () => {
+                const geo = this._currentProject && this._selectedSkin && this._currentProject.geometries
+                    ? this._currentProject.geometries[this._selectedSkin.geometry]
+                    : null;
+                return geo ? this._collectUvTriangles(geo, texW, texH) : triangles;
+            };
             const redraw = () => {
+                clampPan();
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                const triangles = this._collectUvTriangles(this._currentProject.geometries[this._selectedSkin.geometry], img.width, img.height);
-                const drawCount = Math.min(triangles.length, 12000);
+                ctx.drawImage(
+                    img,
+                    this._uvPan.x,
+                    this._uvPan.y,
+                    visibleWidth,
+                    visibleHeight,
+                    0,
+                    0,
+                    canvas.width,
+                    canvas.height
+                );
+                const liveTriangles = getLiveTriangles();
+                const drawCount = Math.min(liveTriangles.length, 12000);
                 for (let i = 0; i < drawCount; i++) {
-                    const tri = triangles[i];
+                    const tri = liveTriangles[i];
                     const hue = Math.round((i * 360) / Math.max(1, drawCount));
+                    const p0 = worldToScreen(tri[0][0], tri[0][1]);
+                    const p1 = worldToScreen(tri[1][0], tri[1][1]);
+                    const p2 = worldToScreen(tri[2][0], tri[2][1]);
                     ctx.beginPath();
-                    ctx.moveTo(tri[0][0] * scale, tri[0][1] * scale);
-                    ctx.lineTo(tri[1][0] * scale, tri[1][1] * scale);
-                    ctx.lineTo(tri[2][0] * scale, tri[2][1] * scale);
+                    ctx.moveTo(p0.x, p0.y);
+                    ctx.lineTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
                     ctx.closePath();
                     ctx.fillStyle = 'hsla(' + hue + ', 85%, 52%, 0.08)';
                     ctx.strokeStyle = 'hsla(' + hue + ', 95%, 65%, 0.7)';
@@ -649,14 +954,20 @@
                     ctx.stroke();
                 }
                 rects.forEach((rect) => {
+                    const displayRect = this._getDisplayedUvRect(rect);
+                    const p = worldToScreen(displayRect.x, displayRect.y);
                     ctx.strokeStyle = rect === this._selectedUvRect ? '#75beff' : '#007acc';
                     ctx.lineWidth = rect === this._selectedUvRect ? 2 : 1;
-                    ctx.strokeRect(rect.x * scale, rect.y * scale, rect.w * scale, rect.h * scale);
+                    ctx.strokeRect(p.x, p.y, displayRect.w * pixelsPerUnit, displayRect.h * pixelsPerUnit);
                 });
             };
 
             let drag = null;
-            const pickRect = (x, y) => rects.slice().reverse().find((rect) => x >= rect.x * scale && x <= (rect.x + rect.w) * scale && y >= rect.y * scale && y <= (rect.y + rect.h) * scale) || null;
+            let pinch = null;
+            const pickRect = (x, y) => {
+                const world = screenToWorld(x, y);
+                return rects.slice().reverse().find((rect) => world.x >= rect.x && world.x <= (rect.x + rect.w) && world.y >= rect.y && world.y <= (rect.y + rect.h)) || null;
+            };
             const getCanvasPoint = (e) => {
                 const rect = canvas.getBoundingClientRect();
                 const scaleX = rect.width > 0 ? canvas.width / rect.width : 1;
@@ -666,14 +977,38 @@
                     y: (e.clientY - rect.top) * scaleY
                 };
             };
+            const getPinchDistance = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
+            const activePointers = new Map();
 
             canvas.addEventListener('pointerdown', (e) => {
+                activePointers.set(e.pointerId, getCanvasPoint(e));
+                if (activePointers.size === 2) {
+                    const points = Array.from(activePointers.values());
+                    pinch = {
+                        distance: getPinchDistance(points[0], points[1]),
+                        center: {
+                            x: (points[0].x + points[1].x) / 2,
+                            y: (points[0].y + points[1].y) / 2
+                        }
+                    };
+                    drag = null;
+                    return;
+                }
                 const point = getCanvasPoint(e);
                 const x = point.x;
                 const y = point.y;
                 const hit = pickRect(x, y);
                 this._selectedUvRect = hit;
-                if (hit) {
+                if (this._uvToolMode === 'pan') {
+                    drag = {
+                        type: 'pan',
+                        startX: x,
+                        startY: y,
+                        origPanX: this._uvPan.x,
+                        origPanY: this._uvPan.y
+                    };
+                    canvas.setPointerCapture(e.pointerId);
+                } else if (hit) {
                     drag = { rect: hit, startX: x, startY: y, origX: hit.x, origY: hit.y };
                     canvas.setPointerCapture(e.pointerId);
                 }
@@ -681,23 +1016,65 @@
             });
 
             canvas.addEventListener('pointermove', (e) => {
+                if (activePointers.has(e.pointerId)) {
+                    activePointers.set(e.pointerId, getCanvasPoint(e));
+                }
+                if (activePointers.size === 2) {
+                    const points = Array.from(activePointers.values());
+                    const distance = getPinchDistance(points[0], points[1]);
+                    const center = {
+                        x: (points[0].x + points[1].x) / 2,
+                        y: (points[0].y + points[1].y) / 2
+                    };
+                    if (pinch) {
+                        if (distance > pinch.distance * 1.08) {
+                            this._zoomUvAt(1, center, canvas, baseScale);
+                            pinch = { distance: distance, center: center };
+                        } else if (distance < pinch.distance / 1.08) {
+                            this._zoomUvAt(-1, center, canvas, baseScale);
+                            pinch = { distance: distance, center: center };
+                        }
+                    }
+                    return;
+                }
                 if (!drag) return;
+                if (drag.type === 'pan') {
+                    const point = getCanvasPoint(e);
+                    this._uvPan.x = drag.origPanX - ((point.x - drag.startX) / pixelsPerUnit);
+                    this._uvPan.y = drag.origPanY - ((point.y - drag.startY) / pixelsPerUnit);
+                    redraw();
+                    return;
+                }
                 const point = getCanvasPoint(e);
                 const x = point.x;
                 const y = point.y;
-                const dx = Math.round((x - drag.startX) / scale);
-                const dy = Math.round((y - drag.startY) / scale);
-                drag.rect.x = drag.origX + dx;
-                drag.rect.y = drag.origY + dy;
+                const dx = Math.round((x - drag.startX) / pixelsPerUnit);
+                const dy = Math.round((y - drag.startY) / pixelsPerUnit);
+                const nextX = drag.origX + dx;
+                const nextY = drag.origY + dy;
+                if (drag.rect.type === 'per-face') {
+                    drag.rect.x = nextX;
+                    drag.rect.y = nextY;
+                    drag.rect.cube.uv[drag.rect.face].uv = [drag.rect.x, drag.rect.y];
+                } else {
+                    this._setBoxUvFromDraggedRect(drag.rect, nextX, nextY);
+                    this._syncBoxUvRects(rects, drag.rect);
+                }
                 redraw();
             });
 
             const commit = () => {
                 if (!drag) return;
+                if (drag.type === 'pan') {
+                    drag = null;
+                    redraw();
+                    return;
+                }
                 if (drag.rect.type === 'per-face') {
-                    drag.rect.cube.uv[drag.rect.face].uv = [drag.rect.x, this._flipUvRectY(drag.rect.y, drag.rect.h)];
+                    drag.rect.cube.uv[drag.rect.face].uv = [drag.rect.x, drag.rect.y];
                 } else {
-                    drag.rect.cube.uv = [drag.rect.x, drag.rect.y];
+                    this._setBoxUvFromDraggedRect(drag.rect, drag.rect.x, drag.rect.y);
+                    this._syncBoxUvRects(rects, drag.rect);
                 }
                 const viewer = this._modelViewer;
                 if (viewer) viewer.refreshGeometry();
@@ -707,6 +1084,19 @@
 
             canvas.addEventListener('pointerup', commit);
             canvas.addEventListener('pointercancel', commit);
+            canvas.addEventListener('pointerup', (e) => {
+                activePointers.delete(e.pointerId);
+                if (activePointers.size < 2) pinch = null;
+            });
+            canvas.addEventListener('pointercancel', (e) => {
+                activePointers.delete(e.pointerId);
+                if (activePointers.size < 2) pinch = null;
+            });
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const point = getCanvasPoint(e);
+                this._zoomUvAt(e.deltaY < 0 ? 1 : -1, point, canvas, baseScale);
+            }, { passive: false });
             redraw();
         }
 

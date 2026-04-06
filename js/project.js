@@ -431,10 +431,21 @@
             return result;
         }
 
+        _shouldIgnoreArchiveMetadata(path) {
+            if (!path) return false;
+            var normalized = String(path).replace(/\\/g, '/');
+            return normalized.indexOf('__MACOSX/') === 0 || /(^|\/)\._[^/]+$/.test(normalized);
+        }
+
         async _loadGeometries() {
             const geoFiles = [];
             this.zip.forEach((path, file) => {
-                if (!file.dir && path.toLowerCase().includes('geometry') && path.toLowerCase().endsWith('.json')) {
+                if (
+                    !file.dir &&
+                    !this._shouldIgnoreArchiveMetadata(path) &&
+                    path.toLowerCase().includes('geometry') &&
+                    path.toLowerCase().endsWith('.json')
+                ) {
                     geoFiles.push(file);
                 }
             });

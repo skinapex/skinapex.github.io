@@ -205,17 +205,19 @@
             if (!skin || !skin.geometry || !project || !project.geometries) return '';
             var geo = project.geometries[skin.geometry];
             if (!geo || !geo.bones) return '';
+            var hasPolyMesh = false;
             for (var b = 0; b < geo.bones.length; b++) {
                 var cubes = geo.bones[b].cubes || [];
                 for (var c = 0; c < cubes.length; c++) {
                     var uv = cubes[c].uv;
                     if (uv) {
-                        return (typeof uv === 'object' && !Array.isArray(uv)) ? 'Per-Face UV' : 'Box UV';
+                        return (typeof uv === 'object' && !Array.isArray(uv)) ? 'Cube Per-Face UV' : 'Box UV';
                     }
                 }
                 // Check poly_mesh
-                if (geo.bones[b].poly_mesh) return 'Per-Face UV';
+                if (geo.bones[b].poly_mesh) hasPolyMesh = true;
             }
+            if (hasPolyMesh) return 'Poly Mesh UV';
             return '';
         }
 
@@ -349,9 +351,20 @@
             var rightPanel = document.getElementById('right-panel');
             if (!rightPanel) return;
             var boneVisible = this.boneEditor && this.boneEditor.isVisible();
+            var outlineVisible = !!(this.outlinePanel && this.outlinePanel.el && this.outlinePanel.el.style.display !== 'none');
             var skinPanel = document.getElementById('skin-properties-panel');
             var skinVisible = !!skinPanel && skinPanel.style.display !== 'none';
-            rightPanel.classList.toggle('has-detail-panel', boneVisible || skinVisible);
+            var hasDetail = boneVisible || skinVisible || outlineVisible;
+            var hasLowerPanel = outlineVisible || boneVisible || skinVisible;
+            rightPanel.classList.toggle('has-detail-panel', hasDetail);
+            rightPanel.classList.toggle('has-lower-panel', hasLowerPanel);
+
+            var detailTabs = document.getElementById('detail-tabs');
+            var rightBodySplitter = document.getElementById('right-body-splitter');
+            var detailSplitter = document.getElementById('detail-splitter');
+            if (detailTabs) detailTabs.style.display = hasDetail ? '' : 'none';
+            if (rightBodySplitter) rightBodySplitter.style.display = hasLowerPanel ? '' : 'none';
+            if (detailSplitter) detailSplitter.style.display = hasDetail ? '' : 'none';
         }
 
         _restoreRightPanelAfterBoneMutation(options) {
@@ -1015,6 +1028,8 @@
             this.welcomeEl.style.display = 'flex';
             this.workspaceEl.style.display = 'none';
             this.tabbarEl.style.display = 'none';
+            var appEl = document.getElementById('app');
+            if (appEl) appEl.classList.remove('workspace-active', 'mobile-nav-visible');
             this.statusBar.set(I18n.t('status.ready'));
         }
 
@@ -1022,6 +1037,8 @@
             this.welcomeEl.style.display = 'none';
             this.workspaceEl.style.display = '';
             this.tabbarEl.style.display = 'flex';
+            var appEl = document.getElementById('app');
+            if (appEl) appEl.classList.add('workspace-active');
         }
 
         _updateWorkspaceLayout() {
@@ -1041,11 +1058,17 @@
             }
 
             if (this.mobileNavEl) {
-                this.mobileNavEl.style.display = isMobile && this.workspaceEl.style.display !== 'none' ? 'flex' : 'none';
+                var mobileNavVisible = isMobile && this.workspaceEl.style.display !== 'none';
+                this.mobileNavEl.style.display = mobileNavVisible ? 'flex' : 'none';
+                var appEl = document.getElementById('app');
+                if (appEl) appEl.classList.toggle('mobile-nav-visible', mobileNavVisible);
                 var buttons = this.mobileNavEl.querySelectorAll('.mobile-nav-btn');
                 buttons.forEach((btn) => {
                     btn.classList.toggle('active', btn.dataset.mobilePanel === this._mobilePanel);
                 });
+            } else {
+                var appElWithoutNav = document.getElementById('app');
+                if (appElWithoutNav) appElWithoutNav.classList.remove('mobile-nav-visible');
             }
         }
 

@@ -25,7 +25,10 @@
             this.isRotating = false;
             this.isPanning = false;
             this.lastMouse = { x: 0, y: 0 };
-            this.rotation = { x: -0.3, y: 0.6 };
+            this.rotation = {
+                x: ModelViewer.DEFAULT_VIEW_ROTATION.x,
+                y: ModelViewer.DEFAULT_VIEW_ROTATION.y
+            };
             this.panOffset = { x: 0, y: 0 };
             this.zoom = 1;
             this.targetZoom = 1;
@@ -200,7 +203,7 @@
                         if (this._gizmoMode === 'rotate') {
                             var rotation = [
                                 -THREE.MathUtils.radToDeg(group.rotation.x),
-                                THREE.MathUtils.radToDeg(group.rotation.y),
+                                -THREE.MathUtils.radToDeg(group.rotation.y),
                                 THREE.MathUtils.radToDeg(group.rotation.z)
                             ];
                             this._onBoneTransform(state.boneName, 'rotation', rotation, this._currentGeoId, this._currentGeoData);
@@ -533,7 +536,10 @@
             if (this._isDestroyed || token !== this._showSkinToken) return;
             this._clearMesh();
             this._clearBoneHierarchy();
-            this.rotation = { x: -0.3, y: 0.6 };
+            this.rotation = {
+                x: ModelViewer.DEFAULT_VIEW_ROTATION.x,
+                y: ModelViewer.DEFAULT_VIEW_ROTATION.y
+            };
             this.panOffset = { x: 0, y: 0 };
             this.zoom = 1;
             this.targetZoom = 1;
@@ -743,7 +749,7 @@
                     }
                 }
 
-                group.rotation.set(-rot[0] * Math.PI / 180, rot[1] * Math.PI / 180, rot[2] * Math.PI / 180);
+                group.rotation.set(-rot[0] * Math.PI / 180, -rot[1] * Math.PI / 180, rot[2] * Math.PI / 180);
                 var localPos = this._getBoneLocalPosition(bone, pos, this._currentGeoData);
                 group.position.set(localPos[0], localPos[1], localPos[2]);
                 group.updateMatrix();
@@ -757,17 +763,17 @@
         _getBoneLocalPosition(bone, absolutePivot, geoData) {
             var pivot = absolutePivot || bone.pivot || [0, 0, 0];
             if (!bone || !bone.parent) {
-                return [pivot[0], pivot[1], -pivot[2]];
+                return [-pivot[0], pivot[1], pivot[2]];
             }
             var parentBone = this._findBone(bone.parent, geoData);
             if (!parentBone) {
-                return [pivot[0], pivot[1], -pivot[2]];
+                return [-pivot[0], pivot[1], pivot[2]];
             }
             var parentPivot = parentBone.pivot || [0, 0, 0];
             return [
-                pivot[0] - parentPivot[0],
+                -(pivot[0] - parentPivot[0]),
                 pivot[1] - parentPivot[1],
-                -(pivot[2] - parentPivot[2])
+                pivot[2] - parentPivot[2]
             ];
         }
 
@@ -776,7 +782,7 @@
             var world = new THREE.Vector3();
             group.getWorldPosition(world);
             var local = this._rootGroup.worldToLocal(world.clone());
-            return [local.x, local.y, -local.z];
+            return [-local.x, local.y, local.z];
         }
 
         _getAbsolutePivotFromTransformTarget(target) {
@@ -784,7 +790,7 @@
             var world = new THREE.Vector3();
             target.getWorldPosition(world);
             var local = this._rootGroup.worldToLocal(world.clone());
-            return [local.x, local.y, -local.z];
+            return [-local.x, local.y, local.z];
         }
 
         _getTransformTarget() {
@@ -809,7 +815,7 @@
                 this._originHelper.visible = false;
                 return;
             }
-            this._originHelper.position.set(bone.pivot[0], bone.pivot[1], -bone.pivot[2]);
+            this._originHelper.position.set(-bone.pivot[0], bone.pivot[1], bone.pivot[2]);
             this._originHelper.visible = this._gizmoMode === 'offset';
             this._originHelper.updateMatrixWorld(true);
         }
@@ -992,16 +998,17 @@
                 var bone = bones[b];
                 var group = new THREE.Group();
                 group.name = bone.name || ('bone_' + b);
+                group.rotation.order = 'ZYX';
 
-                // Pivot position in Three.js space (Z negated)
+                // Pivot position in Three.js space (X negated)
                 var pivot = bone.pivot || [0, 0, 0];
-                group.position.set(pivot[0], pivot[1], -pivot[2]);
+                group.position.set(-pivot[0], pivot[1], pivot[2]);
 
                 // Rotation in degrees → radians, Z negated
                 var rot = bone.rotation || [0, 0, 0];
                 group.rotation.set(
                     -rot[0] * Math.PI / 180,
-                    rot[1] * Math.PI / 180,
+                    -rot[1] * Math.PI / 180,
                     rot[2] * Math.PI / 180
                 );
 
@@ -1069,9 +1076,9 @@
                         // Offset positions relative to bone pivot
                         var posAttr = geometry.attributes.position;
                         for (var i = 0; i < posAttr.count; i++) {
-                            posAttr.setX(i, posAttr.getX(i) - pivot3[0]);
+                            posAttr.setX(i, posAttr.getX(i) + pivot3[0]);
                             posAttr.setY(i, posAttr.getY(i) - pivot3[1]);
-                            posAttr.setZ(i, posAttr.getZ(i) + pivot3[2]);
+                            posAttr.setZ(i, posAttr.getZ(i) - pivot3[2]);
                         }
                         posAttr.needsUpdate = true;
 
@@ -1137,9 +1144,9 @@
                         var uvIdx = corner[2] !== undefined ? corner[2] : 0;
                         var v = verts[vIdx] || [0, 0, 0];
                         // Offset by pivot
-                        positions.push(v[0] - pivot[0], v[1] - pivot[1], -(v[2] - pivot[2]));
+                        positions.push(-(v[0] - pivot[0]), v[1] - pivot[1], v[2] - pivot[2]);
                         var nrm = norms[nIdx] || [0, 1, 0];
-                        normals.push(nrm[0], nrm[1], -nrm[2]);
+                        normals.push(-nrm[0], nrm[1], nrm[2]);
                         var uv = uvData[uvIdx] || [0, 0];
                         var uu = uv[0], vv = uv[1];
                         if (normalized) { uu *= texW; vv *= texH; }
@@ -1245,6 +1252,9 @@
                     var cube = bone.cubes[c];
                     var o = cube.origin || [0, 0, 0];
                     cube.origin = [o[0] + dx, o[1] + dy, o[2] + dz];
+                    if (cube.pivot) {
+                        cube.pivot = [cube.pivot[0] + dx, cube.pivot[1] + dy, cube.pivot[2] + dz];
+                    }
                 }
             }
 
@@ -1301,15 +1311,15 @@
             var pivot = bone.pivot || [0, 0, 0];
             var euler = new THREE.Euler(
                 -rotation[0] * Math.PI / 180,
-                rotation[1] * Math.PI / 180,
+                -rotation[1] * Math.PI / 180,
                 rotation[2] * Math.PI / 180,
-                'XYZ'
+                'ZYX'
             );
 
             var rotatePoint = function (point) {
-                var vec = new THREE.Vector3(point[0] - pivot[0], point[1] - pivot[1], -(point[2] - pivot[2]));
+                var vec = new THREE.Vector3(-(point[0] - pivot[0]), point[1] - pivot[1], point[2] - pivot[2]);
                 vec.applyEuler(euler);
-                return [vec.x + pivot[0], vec.y + pivot[1], -(vec.z - pivot[2])];
+                return [-(vec.x - pivot[0]), vec.y + pivot[1], vec.z + pivot[2]];
             };
 
             if (bone.cubes) {
@@ -1366,6 +1376,9 @@
                             var cube = child.cubes[c];
                             var o = cube.origin || [0, 0, 0];
                             cube.origin = [o[0] + dx, o[1] + dy, o[2] + dz];
+                            if (cube.pivot) {
+                                cube.pivot = [cube.pivot[0] + dx, cube.pivot[1] + dy, cube.pivot[2] + dz];
+                            }
                         }
                     }
                     // Shift poly_mesh positions
@@ -1402,7 +1415,7 @@
                     var childName = child.name || ('bone_' + i);
                     var group = this._boneGroups[childName];
                     if (group) {
-                        group.position.set(group.position.x + dx, group.position.y + dy, group.position.z - dz);
+                        group.position.set(group.position.x - dx, group.position.y + dy, group.position.z + dz);
                     }
                     this._updateDescendantGroupPositions(childName, dx, dy, dz, geoData);
                 }
@@ -1660,9 +1673,9 @@
                     // Offset positions relative to new pivot
                     var posAttr = geometry.attributes.position;
                     for (var i = 0; i < posAttr.count; i++) {
-                        posAttr.setX(i, posAttr.getX(i) - pivot[0]);
+                        posAttr.setX(i, posAttr.getX(i) + pivot[0]);
                         posAttr.setY(i, posAttr.getY(i) - pivot[1]);
-                        posAttr.setZ(i, posAttr.getZ(i) + pivot[2]);
+                        posAttr.setZ(i, posAttr.getZ(i) - pivot[2]);
                     }
                     posAttr.needsUpdate = true;
 
@@ -1853,7 +1866,12 @@
             var sx = (cube.size || [1, 1, 1])[0];
             var sy = (cube.size || [1, 1, 1])[1];
             var sz = (cube.size || [1, 1, 1])[2];
+            var boxUvSx = Math.max(0, Math.floor(sx + 0.0000001));
+            var boxUvSy = Math.max(0, Math.floor(sy + 0.0000001));
+            var boxUvSz = Math.max(0, Math.floor(sz + 0.0000001));
             var inf = cube.inflate || 0;
+            var cubePivot = cube.pivot || null;
+            var cubeRotation = cube.rotation || null;
 
             var verts = [
                 [ox - inf, oy - inf, oz + sz + inf],
@@ -1875,6 +1893,53 @@
                 [0, -1, 0]  // Down
             ];
 
+            // Bedrock geometry uses an X-flipped coordinate mapping in Blockbench's
+            // preview/model space. Apply that once here so cube, bone, and poly_mesh
+            // all live in the same internal coordinate system.
+            for (var tv = 0; tv < verts.length; tv++) {
+                verts[tv] = [-verts[tv][0], verts[tv][1], verts[tv][2]];
+            }
+            for (var tn = 0; tn < faceNormals.length; tn++) {
+                faceNormals[tn] = [-faceNormals[tn][0], faceNormals[tn][1], faceNormals[tn][2]];
+            }
+
+            if (cubePivot && cubeRotation && (cubeRotation[0] || cubeRotation[1] || cubeRotation[2])) {
+                var pivotX = -(cubePivot[0] || 0);
+                var pivotY = cubePivot[1] || 0;
+                var pivotZ = cubePivot[2] || 0;
+                var euler = new THREE.Euler(
+                    -(cubeRotation[0] || 0) * Math.PI / 180,
+                    -(cubeRotation[1] || 0) * Math.PI / 180,
+                    (cubeRotation[2] || 0) * Math.PI / 180,
+                    'ZYX'
+                );
+
+                for (var rv = 0; rv < verts.length; rv++) {
+                    var vert = verts[rv];
+                    var rotated = new THREE.Vector3(
+                        vert[0] - pivotX,
+                        vert[1] - pivotY,
+                        vert[2] - pivotZ
+                    );
+                    rotated.applyEuler(euler);
+                    verts[rv] = [
+                        rotated.x + pivotX,
+                        rotated.y + pivotY,
+                        rotated.z + pivotZ
+                    ];
+                }
+
+                for (var rn = 0; rn < faceNormals.length; rn++) {
+                    var normal = new THREE.Vector3(
+                        faceNormals[rn][0],
+                        faceNormals[rn][1],
+                        faceNormals[rn][2]
+                    );
+                    normal.applyEuler(euler);
+                    faceNormals[rn] = [normal.x, normal.y, normal.z];
+                }
+            }
+
             var faceKeys = ['north', 'east', 'south', 'west', 'up', 'down'];
             var faceIndices = [
                 [4, 5, 6, 7], // North
@@ -1885,26 +1950,27 @@
                 [4, 5, 1, 0]  // Down
             ];
 
-            var faceUvAxes = [
-                { u: [1, 0, 0],  v: [0, -1, 0] }, // North
-                { u: [0, 0, -1], v: [0, -1, 0] }, // East
-                { u: [-1, 0, 0], v: [0, -1, 0] }, // South
-                { u: [0, 0, 1],  v: [0, -1, 0] }, // West
-                { u: [1, 0, 0],  v: [0, 0, 1] },  // Up
-                { u: [1, 0, 0],  v: [0, 0, -1] }  // Down
-            ];
-
             var effectiveMirror = (cube.mirror !== undefined) ? !!cube.mirror : !!boneMirror;
 
             // Determine UV layout: per-face object or box UV array
             var uvData = cube.uv;
             var usePerFaceUv = (uvData && typeof uvData === 'object' && !Array.isArray(uvData));
             var faces;
+            var faceCornerOrders = null;
+            var explicitCornerUVs = null;
 
             if (usePerFaceUv) {
                 // Per-face UV: each face specifies its own uv rect
                 // Format: { north: { uv: [u,v], uv_size: [w,h] }, ... }
                 faces = [];
+                faceCornerOrders = [
+                    [0, 1, 2, 3],
+                    [0, 1, 2, 3],
+                    [0, 1, 2, 3],
+                    [0, 1, 2, 3],
+                    [0, 1, 2, 3],
+                    [0, 1, 2, 3]
+                ];
                 for (var fi = 0; fi < 6; fi++) {
                     var fkey = faceKeys[fi];
                     var defaultW = (fi === 1 || fi === 3) ? sz : sx;
@@ -1918,26 +1984,89 @@
                     faces.push({ fi: faceIndices[fi], u: uvXY[0], v: uvXY[1], w: uvWH[0], h: uvWH[1] });
                 }
             } else {
-                // Box UV: standard Bedrock cross-layout
+                // Box UV: follow Blockbench/Bedrock face layout so the 3D preview,
+                // UV overlay, and exported edits all agree on face slots and winding.
                 var uvx = (uvData || [0, 0])[0];
                 var uvy = (uvData || [0, 0])[1];
-                var boxFaces = [
-                    { fi: faceIndices[0], u: uvx + sz,             v: uvy + sz, w: sx, h: sy }, // North (-Z)
-                    { fi: faceIndices[1], u: uvx + sz + sx,        v: uvy + sz, w: sz, h: sy }, // East  (+X)
-                    { fi: faceIndices[2], u: uvx + sz + sx + sz,   v: uvy + sz, w: sx, h: sy }, // South (+Z)
-                    { fi: faceIndices[3], u: uvx,                  v: uvy + sz, w: sz, h: sy }, // West  (-X)
-                    { fi: faceIndices[4], u: uvx + sz,             v: uvy,      w: sx, h: sz }, // Up    (+Y)
-                    { fi: faceIndices[5], u: uvx + sz + sx,        v: uvy,      w: sx, h: sz }  // Down  (-Y)
-                ];
-                // Bedrock mirror (cube-level or inherited from bone) affects box UV layout.
-                // 1) Swap East/West atlas slots.
-                // 2) Flip U direction on all faces.
+                var boxLayout = {
+                    east:  { x1: uvx,                                  y1: uvy + boxUvSz, x2: uvx + boxUvSz,                            y2: uvy + boxUvSz + boxUvSy },
+                    west:  { x1: uvx + boxUvSz + boxUvSx,              y1: uvy + boxUvSz, x2: uvx + boxUvSz + boxUvSx + boxUvSz,      y2: uvy + boxUvSz + boxUvSy },
+                    up:    { x1: uvx + boxUvSz + boxUvSx,              y1: uvy + boxUvSz, x2: uvx + boxUvSz,                            y2: uvy },
+                    down:  { x1: uvx + boxUvSz + (2 * boxUvSx),        y1: uvy,           x2: uvx + boxUvSz + boxUvSx,                  y2: uvy + boxUvSz },
+                    south: { x1: uvx + (2 * boxUvSz) + boxUvSx,        y1: uvy + boxUvSz, x2: uvx + (2 * boxUvSz) + (2 * boxUvSx),    y2: uvy + boxUvSz + boxUvSy },
+                    north: { x1: uvx + boxUvSz,                        y1: uvy + boxUvSz, x2: uvx + boxUvSz + boxUvSx,                  y2: uvy + boxUvSz + boxUvSy }
+                };
+
                 if (effectiveMirror) {
-                    var tmpFace = boxFaces[1]; // East
-                    boxFaces[1] = boxFaces[3]; // East gets West's UV
-                    boxFaces[3] = tmpFace;     // West gets East's UV
+                    for (var layoutKey in boxLayout) {
+                        if (!Object.prototype.hasOwnProperty.call(boxLayout, layoutKey)) continue;
+                        var layout = boxLayout[layoutKey];
+                        var mirroredX = layout.x2;
+                        layout.x2 = layout.x1;
+                        layout.x1 = mirroredX;
+                    }
+                    var eastLayout = {
+                        x1: boxLayout.east.x1,
+                        y1: boxLayout.east.y1,
+                        x2: boxLayout.east.x2,
+                        y2: boxLayout.east.y2
+                    };
+                    boxLayout.east.x1 = boxLayout.west.x1;
+                    boxLayout.east.y1 = boxLayout.west.y1;
+                    boxLayout.east.x2 = boxLayout.west.x2;
+                    boxLayout.east.y2 = boxLayout.west.y2;
+                    boxLayout.west.x1 = eastLayout.x1;
+                    boxLayout.west.y1 = eastLayout.y1;
+                    boxLayout.west.x2 = eastLayout.x2;
+                    boxLayout.west.y2 = eastLayout.y2;
                 }
-                faces = boxFaces;
+
+                faces = [
+                    { fi: faceIndices[0] },
+                    { fi: faceIndices[1] },
+                    { fi: faceIndices[2] },
+                    { fi: faceIndices[3] },
+                    { fi: faceIndices[4] },
+                    { fi: faceIndices[5] }
+                ];
+                explicitCornerUVs = [
+                    [ // North
+                        [boxLayout.north.x2, boxLayout.north.y2],
+                        [boxLayout.north.x1, boxLayout.north.y2],
+                        [boxLayout.north.x1, boxLayout.north.y1],
+                        [boxLayout.north.x2, boxLayout.north.y1]
+                    ],
+                    [ // East
+                        [boxLayout.east.x1, boxLayout.east.y2],
+                        [boxLayout.east.x2, boxLayout.east.y2],
+                        [boxLayout.east.x2, boxLayout.east.y1],
+                        [boxLayout.east.x1, boxLayout.east.y1]
+                    ],
+                    [ // South
+                        [boxLayout.south.x2, boxLayout.south.y2],
+                        [boxLayout.south.x1, boxLayout.south.y2],
+                        [boxLayout.south.x1, boxLayout.south.y1],
+                        [boxLayout.south.x2, boxLayout.south.y1]
+                    ],
+                    [ // West
+                        [boxLayout.west.x1, boxLayout.west.y2],
+                        [boxLayout.west.x2, boxLayout.west.y2],
+                        [boxLayout.west.x2, boxLayout.west.y1],
+                        [boxLayout.west.x1, boxLayout.west.y1]
+                    ],
+                    [ // Up
+                        [boxLayout.up.x1, boxLayout.up.y2],
+                        [boxLayout.up.x2, boxLayout.up.y2],
+                        [boxLayout.up.x2, boxLayout.up.y1],
+                        [boxLayout.up.x1, boxLayout.up.y1]
+                    ],
+                    [ // Down
+                        [boxLayout.down.x1, boxLayout.down.y2],
+                        [boxLayout.down.x2, boxLayout.down.y2],
+                        [boxLayout.down.x2, boxLayout.down.y1],
+                        [boxLayout.down.x1, boxLayout.down.y1]
+                    ]
+                ];
             }
 
             var positions = [];
@@ -1949,49 +2078,52 @@
             for (var f = 0; f < faces.length; f++) {
                 var face = faces[f];
                 var triOrder = [0, 1, 2, 0, 2, 3];
-                var u1 = face.u, v1 = face.v;
-                var u2 = face.u + face.w, v2 = face.v + face.h;
-                var axis = faceUvAxes[f];
-                var localUv = [];
-                var minU = Infinity, maxU = -Infinity;
-                var minV = Infinity, maxV = -Infinity;
-
-                for (var vi = 0; vi < 4; vi++) {
-                    var cornerIdx = face.fi[vi];
-                    var p = verts[cornerIdx];
-                    var lu = p[0] * axis.u[0] + p[1] * axis.u[1] + p[2] * axis.u[2];
-                    var lv = p[0] * axis.v[0] + p[1] * axis.v[1] + p[2] * axis.v[2];
-                    localUv.push([lu, lv]);
-                    if (lu < minU) minU = lu;
-                    if (lu > maxU) maxU = lu;
-                    if (lv < minV) minV = lv;
-                    if (lv > maxV) maxV = lv;
-                }
-
-                var rangeU = maxU - minU;
-                var rangeV = maxV - minV;
-                if (rangeU === 0) rangeU = 1;
-                if (rangeV === 0) rangeV = 1;
-
-                var cornerUVs = [];
-                for (var ci = 0; ci < 4; ci++) {
-                    var nu = (localUv[ci][0] - minU) / rangeU;
-                    var nv = (localUv[ci][1] - minV) / rangeV;
-                    if (!usePerFaceUv && effectiveMirror) {
-                        nu = 1 - nu;
+                var cornerUVs;
+                if (explicitCornerUVs && explicitCornerUVs[f]) {
+                    cornerUVs = explicitCornerUVs[f];
+                    if (!usePerFaceUv) {
+                        var minU = Infinity;
+                        var maxU = -Infinity;
+                        var minV = Infinity;
+                        var maxV = -Infinity;
+                        for (var cu = 0; cu < cornerUVs.length; cu++) {
+                            minU = Math.min(minU, cornerUVs[cu][0]);
+                            maxU = Math.max(maxU, cornerUVs[cu][0]);
+                            minV = Math.min(minV, cornerUVs[cu][1]);
+                            maxV = Math.max(maxV, cornerUVs[cu][1]);
+                        }
+                        var bleedMargin = 1 / 64;
+                        cornerUVs = cornerUVs.map(function (point) {
+                            return [
+                                point[0] === minU ? (point[0] + bleedMargin) : (point[0] - bleedMargin),
+                                point[1] === minV ? (point[1] + bleedMargin) : (point[1] - bleedMargin)
+                            ];
+                        });
                     }
-                    cornerUVs.push([
-                        u1 + nu * (u2 - u1),
-                        v1 + nv * (v2 - v1)
-                    ]);
+                } else {
+                    var u1 = face.u, v1 = face.v;
+                    var u2 = face.u + face.w, v2 = face.v + face.h;
+                    var rectCornerUVs = [
+                        [u1, v1],
+                        [u2, v1],
+                        [u2, v2],
+                        [u1, v2]
+                    ];
+                    var order = faceCornerOrders && faceCornerOrders[f] ? faceCornerOrders[f] : [0, 1, 2, 3];
+                    cornerUVs = [
+                        rectCornerUVs[order[0]],
+                        rectCornerUVs[order[1]],
+                        rectCornerUVs[order[2]],
+                        rectCornerUVs[order[3]]
+                    ];
                 }
                 var fn = faceNormals[f];
 
                 for (var t = 0; t < triOrder.length; t++) {
                     var vi = triOrder[t];
                     var vert = verts[face.fi[vi]];
-                    positions.push(vert[0], vert[1], -vert[2]);
-                    normals.push(fn[0], fn[1], -fn[2]);
+                    positions.push(vert[0], vert[1], vert[2]);
+                    normals.push(fn[0], fn[1], fn[2]);
                     var uv = cornerUVs[vi];
                     // Box UV needs a V flip for the texture pipeline here.
                     // Per-face UV data already uses top-left atlas coordinates in the editor,
@@ -2087,8 +2219,8 @@
 
             // Apply a slight rotation for a nice 3/4 view
             var wrapper = new THREE.Group();
-            wrapper.rotation.x = -0.3;
-            wrapper.rotation.y = 0.6;
+            wrapper.rotation.x = ModelViewer.DEFAULT_VIEW_ROTATION.x;
+            wrapper.rotation.y = ModelViewer.DEFAULT_VIEW_ROTATION.y;
             wrapper.add(rootGroup.clone(true));
             scene.add(wrapper);
 
@@ -2259,6 +2391,8 @@
             this.camera = null;
         }
     }
+
+    ModelViewer.DEFAULT_VIEW_ROTATION = Object.freeze({ x: -0.3, y: Math.PI - 0.6 });
 
     window.SkinApex.ModelViewer = ModelViewer;
 })();
