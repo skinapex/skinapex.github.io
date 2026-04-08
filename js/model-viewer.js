@@ -55,11 +55,30 @@
             this._animationState = {
                 officialAnimations: {},
                 activeEntries: [],
-                selected: '__all__',
+                actionEntries: {},
+                selectedAnimation: '__all__',
+                selectedAction: '__none__',
                 molang: null,
                 startedAt: 0,
                 animatedBones: {}
             };
+            this._polyMeshNormalMode = 'auto';
+            this._lookAtPointerEnabled = false;
+            this._pointerLookTarget = { yaw: 0, pitch: 0 };
+            this._pointerLookCurrent = { yaw: 0, pitch: 0 };
+            this._pointerLookClient = null;
+        }
+
+        setPolyMeshNormalMode(mode) {
+            this._polyMeshNormalMode = mode === 'source' || mode === 'recalculate' ? mode : 'auto';
+        }
+
+        setLookAtPointerEnabled(enabled) {
+            this._lookAtPointerEnabled = !!enabled;
+            if (!this._lookAtPointerEnabled) {
+                this._pointerLookTarget = { yaw: 0, pitch: 0 };
+                this._pointerLookClient = null;
+            }
         }
 
         setOnBonePick(fn) {
@@ -84,7 +103,25 @@
         }
 
         getAnimatedBones() {
-            return JSON.parse(JSON.stringify(this._animationState.animatedBones || {}));
+            var selectionAnimation = this._animationState.selectedAnimation || '__all__';
+            var selectionAction = this._animationState.selectedAction || '__none__';
+            var filtered = {};
+            var animatedBones = this._animationState.animatedBones || {};
+            Object.keys(animatedBones).forEach(function (boneName) {
+                var entries = animatedBones[boneName] || [];
+                var visible = entries.filter(function (entry) {
+                    var slot = entry.slot || '';
+                    if (slot.indexOf('__action__:') === 0) {
+                        return selectionAction !== '__none__' && slot === selectionAction;
+                    }
+                    if (selectionAnimation === '__none__') return false;
+                    return selectionAnimation === '__all__' || selectionAnimation === entry.slot || selectionAnimation === entry.id;
+                });
+                if (visible.length) {
+                    filtered[boneName] = visible;
+                }
+            });
+            return JSON.parse(JSON.stringify(filtered));
         }
 
         getAvailableAnimations() {
@@ -93,12 +130,52 @@
             });
         }
 
+        getPreviewAnimationPresets() {
+            return ModelViewer.PREVIEW_ANIMATION_PRESETS.map(function (preset) {
+                return { key: preset.key, labelKey: preset.labelKey };
+            });
+        }
+
+        _normalizeHumanBoneName(name) {
+            var raw = String(name || '');
+            var normalized = raw.replace(/[^a-z0-9]/gi, '').toLowerCase();
+            if (!normalized) return '';
+            if (ModelViewer.HUMAN_BONE_ALIASES[normalized]) return normalized;
+            var aliasKeys = Object.keys(ModelViewer.HUMAN_BONE_ALIASES);
+            for (var i = 0; i < aliasKeys.length; i++) {
+                var canonical = aliasKeys[i];
+                var patterns = ModelViewer.HUMAN_BONE_ALIASES[canonical] || [];
+                for (var p = 0; p < patterns.length; p++) {
+                    if (patterns[p].test(raw)) return canonical;
+                }
+            }
+            return normalized;
+        }
+
+        _findAnimatedBoneEntry(bonesMap, boneName) {
+            if (!bonesMap) return null;
+            if (bonesMap[boneName]) return bonesMap[boneName];
+            var canonical = this._normalizeHumanBoneName(boneName);
+            if (canonical && bonesMap[canonical]) return bonesMap[canonical];
+            var keys = Object.keys(bonesMap);
+            for (var i = 0; i < keys.length; i++) {
+                if (this._normalizeHumanBoneName(keys[i]) === canonical) {
+                    return bonesMap[keys[i]];
+                }
+            }
+            return null;
+        }
+
         setSelectedAnimation(selection) {
             if (selection === '__none__') {
-                this._animationState.selected = '__none__';
+                this._animationState.selectedAnimation = '__none__';
                 return;
             }
-            this._animationState.selected = selection || '__all__';
+            this._animationState.selectedAnimation = selection || '__all__';
+        }
+
+        setSelectedAction(selection) {
+            this._animationState.selectedAction = selection || '__none__';
         }
 
         /**
@@ -130,8 +207,8 @@
                 antialias: false,
                 alpha: true
             });
-            this.renderer.setSize(w, h);
             this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            this._syncRendererSize(w, h);
 
             // Lights
             this.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
@@ -268,7 +345,16 @@
             this.camera.top = frustumSize / 2;
             this.camera.bottom = frustumSize / -2;
             this.camera.updateProjectionMatrix();
-            this.renderer.setSize(w, h);
+            this._syncRendererSize(w, h);
+        }
+
+        _syncRendererSize(w, h) {
+            if (!this.renderer || !this.canvasEl) return;
+            var width = Math.max(1, Math.round(Number(w) || 0));
+            var height = Math.max(1, Math.round(Number(h) || 0));
+            this.renderer.setSize(width, height, false);
+            this.canvasEl.style.width = '100%';
+            this.canvasEl.style.height = '100%';
         }
 
         /**
@@ -309,6 +395,7 @@
             });
 
             canvas.addEventListener('mousemove', (e) => {
+                this._setPointerLookClientPosition(e.clientX, e.clientY);
                 const dx = e.clientX - this.lastMouse.x;
                 const dy = e.clientY - this.lastMouse.y;
                 this.lastMouse = { x: e.clientX, y: e.clientY };
@@ -334,6 +421,8 @@
                 this._clickCandidate = null;
                 this.isRotating = false;
                 this.isPanning = false;
+                this._pointerLookTarget = { yaw: 0, pitch: 0 };
+                this._pointerLookClient = null;
                 canvas.style.cursor = 'grab';
             });
 
@@ -367,6 +456,7 @@
                 ts.tapCandidate = null;
 
                 if (e.touches.length === 1) {
+                    this._setPointerLookClientPosition(e.touches[0].clientX, e.touches[0].clientY);
                     ts.isTouchRotate = true;
                     this.autoRotate = false;
                     ts.tapCandidate = { x: e.touches[0].clientX, y: e.touches[0].clientY, moved: false };
@@ -385,6 +475,9 @@
             canvas.addEventListener('touchmove', (e) => {
                 e.preventDefault();
                 var ts = this._touchState;
+                if (e.touches.length === 1) {
+                    this._setPointerLookClientPosition(e.touches[0].clientX, e.touches[0].clientY);
+                }
 
                 if (e.touches.length === 1 && ts.isTouchRotate) {
                     var dx = e.touches[0].clientX - ts.touches[0].x;
@@ -425,6 +518,7 @@
                     this._handlePointPick(ts.tapCandidate.x, ts.tapCandidate.y);
                 }
                 if (e.touches.length === 0) {
+                    this._pointerLookTarget = { yaw: 0, pitch: 0 };
                     ts.isTouchRotate = false;
                     ts.isTouchPan = false;
                     ts.lastPinchDist = 0;
@@ -509,7 +603,6 @@
             if (this.autoRotate && target) {
                 this.rotation.y += 0.004;
             }
-            this._applyAnimationFrame();
             this.zoom += (this.targetZoom - this.zoom) * 0.1;
             if (target) {
                 target.rotation.x = this.rotation.x;
@@ -522,6 +615,13 @@
             this.camera.position.y = halfH + this.panOffset.y;
             this.camera.position.z = 50;  // Ensure camera Z is always set
             this.camera.lookAt(this.panOffset.x, halfH, 0);
+            if (target) {
+                target.updateMatrixWorld(true);
+            }
+            this.camera.updateMatrixWorld(true);
+            this._updatePointerLookFromClientPosition();
+            this._updatePointerLookState();
+            this._applyAnimationFrame();
             this.renderer.render(this.scene, this.camera);
         }
 
@@ -545,6 +645,7 @@
             this.targetZoom = 1;
             this.autoRotate = false;
             this._animationState.activeEntries = [];
+            this._animationState.actionEntries = {};
             this._animationState.animatedBones = {};
             this._animationState.startedAt = performance.now();
 
@@ -678,48 +779,121 @@
 
         async _prepareAnimations(skin, project) {
             this._animationState.activeEntries = [];
+            this._animationState.actionEntries = {};
             this._animationState.animatedBones = {};
             this._animationState.startedAt = performance.now();
-            this._animationState.selected = '__all__';
+            this._animationState.selectedAnimation = '__all__';
+            this._animationState.selectedAction = '__none__';
             this._animationState.molang = window.Molang && window.Molang.Molang
                 ? new window.Molang.Molang({}, { useCache: false, convertUndefined: true, useRadians: false, assumeFlatEnvironment: true })
                 : null;
 
             var mappings = skin && skin.animations ? skin.animations : (skin && skin.data ? skin.data.animations : null);
-            if (!mappings || !Object.keys(mappings).length || !this._currentGeoData || !this._currentGeoData.bones) {
+            if (!this._currentGeoData || !this._currentGeoData.bones) {
                 this._animationState.officialAnimations = {};
                 return;
             }
 
             // Ensure the index is loaded, then batch-fetch only the animations this skin uses
-            await project.getOfficialAnimationIndex();
-            var neededIds = Object.values(mappings).filter(function (id) { return !!id; });
+            try {
+                await project.getOfficialAnimationIndex();
+            } catch (err) {
+                this._animationState.officialAnimations = {};
+                return;
+            }
+            var neededIds = [];
+            if (mappings && Object.keys(mappings).length) {
+                neededIds = neededIds.concat(Object.values(mappings).filter(function (id) { return !!id; }));
+            }
+            ModelViewer.PREVIEW_ANIMATION_PRESETS.forEach(function (preset) {
+                var definition = ModelViewer.PREVIEW_ACTION_DEFINITIONS[preset.key];
+                if (definition && Array.isArray(definition.animationIds)) {
+                    neededIds = neededIds.concat(definition.animationIds);
+                }
+            });
+            neededIds = Array.from(new Set(neededIds));
             var loadedAnimations = await project.getOfficialAnimations(neededIds);
             this._animationState.officialAnimations = loadedAnimations;
 
             var animated = {};
-            Object.keys(mappings).forEach((slot) => {
+            var addAnimatedBones = (slot, animationId, animation) => {
+                if (!animation || !animation.bones) return;
+                Object.keys(animation.bones).forEach((boneName) => {
+                    var targetBone = this._findBone(boneName, this._currentGeoData) || this._findBoneByCanonicalName(boneName, this._currentGeoData);
+                    if (!targetBone) return;
+                    var targetBoneName = targetBone.name || boneName;
+                    if (!animated[targetBoneName]) animated[targetBoneName] = [];
+                    animated[targetBoneName].push({ slot: slot, id: animationId });
+                });
+            };
+
+            Object.keys(mappings || {}).forEach((slot) => {
                 var animationId = mappings[slot];
                 var animation = loadedAnimations[animationId];
                 if (!animation || !animation.bones) return;
-                this._animationState.activeEntries.push({ slot: slot, id: animationId, data: animation });
-                Object.keys(animation.bones).forEach((boneName) => {
-                    if (this._boneGroups[boneName] || this._findBone(boneName, this._currentGeoData)) {
-                        if (!animated[boneName]) animated[boneName] = [];
-                        animated[boneName].push({ slot: slot, id: animationId });
+                this._animationState.activeEntries.push({
+                    slot: slot,
+                    id: animationId,
+                    data: animation,
+                    meta: {
+                        overridePreviousAnimation: !!animation.override_previous_animation,
+                        blendWeight: animation.blend_weight,
+                        animTimeUpdate: animation.anim_time_update,
+                        animationLength: Number(animation.animation_length) || 0,
+                        loop: !!animation.loop
                     }
                 });
+                addAnimatedBones(slot, animationId, animation);
             });
+
+            var actionEntries = {};
+            ModelViewer.PREVIEW_ANIMATION_PRESETS.forEach((preset) => {
+                var definition = ModelViewer.PREVIEW_ACTION_DEFINITIONS[preset.key];
+                if (!definition || !Array.isArray(definition.animationIds)) return;
+                var selectionKey = '__action__:' + preset.key;
+                var entries = [];
+                definition.animationIds.forEach((animationId) => {
+                    var animation = loadedAnimations[animationId];
+                    if (!animation || !animation.bones) return;
+                    entries.push({
+                        slot: selectionKey,
+                        id: animationId,
+                        data: animation,
+                        meta: {
+                            overridePreviousAnimation: !!animation.override_previous_animation,
+                            blendWeight: animation.blend_weight,
+                            animTimeUpdate: animation.anim_time_update,
+                            animationLength: Number(animation.animation_length) || 0,
+                            loop: !!animation.loop
+                        }
+                    });
+                    addAnimatedBones(selectionKey, animationId, animation);
+                });
+                actionEntries[selectionKey] = entries;
+            });
+
+            this._animationState.actionEntries = actionEntries;
             this._animationState.animatedBones = animated;
         }
 
         _applyAnimationFrame() {
             if (!this._currentGeoData || !this._currentGeoData.bones || !this._rootGroup) return;
             if (this._transformControls && this._transformControls.dragging) return;
-            var entries = this._animationState.activeEntries || [];
-            var selection = this._animationState.selected || '__all__';
-            if (selection === '__none__') selection = '__none__';
+            var animationEntries = this._animationState.activeEntries || [];
+            var animationSelection = this._animationState.selectedAnimation || '__all__';
+            var actionSelection = this._animationState.selectedAction || '__none__';
             var time = (performance.now() - (this._animationState.startedAt || performance.now())) / 1000;
+            var previewPreset = this._getPreviewPresetState(actionSelection, time);
+            var neutralPreset = ModelViewer._buildPreviewPresetState(null, time);
+            var entries = [];
+            if (animationSelection !== '__none__') {
+                entries = entries.concat(animationEntries.filter(function (entry) {
+                    return animationSelection === '__all__' || animationSelection === entry.slot || animationSelection === entry.id;
+                }));
+            }
+            if (actionSelection !== '__none__') {
+                entries = entries.concat((this._animationState.actionEntries && this._animationState.actionEntries[actionSelection]) || []);
+            }
 
             for (var i = 0; i < this._currentGeoData.bones.length; i++) {
                 var bone = this._currentGeoData.bones[i];
@@ -729,25 +903,48 @@
 
                 var baseRot = bone.rotation || [0, 0, 0];
                 var basePivot = bone.pivot || [0, 0, 0];
-                var rot = [baseRot[0], baseRot[1], baseRot[2]];
-                var pos = [basePivot[0], basePivot[1], basePivot[2]];
+                var rotAccum = [0, 0, 0];
+                var posAccum = [0, 0, 0];
 
                 for (var e = 0; e < entries.length; e++) {
                     var entry = entries[e];
-                    if (selection === '__none__') continue;
-                    if (selection !== '__all__' && selection !== entry.slot && selection !== entry.id) continue;
-                    var boneAnim = entry.data && entry.data.bones ? entry.data.bones[boneName] : null;
+                    var boneAnim = this._findAnimatedBoneEntry(entry.data && entry.data.bones ? entry.data.bones : null, boneName);
                     if (!boneAnim) continue;
 
+                    var entryPreviewPreset = entry.slot && entry.slot.indexOf('__action__:') === 0
+                        ? previewPreset
+                        : neutralPreset;
+
+                    var entryContext = this._buildAnimationExecutionContext(entry, time, entryPreviewPreset);
+                    var blendWeight = this._resolveAnimationBlendWeight(entry, entryContext, entryPreviewPreset);
+
+                    if (entry.meta && entry.meta.overridePreviousAnimation) {
+                        if (boneAnim.rotation) rotAccum = [0, 0, 0];
+                        if (boneAnim.position) posAccum = [0, 0, 0];
+                    }
+
                     if (boneAnim.rotation) {
-                        var nextRot = this._evalAnimVec3(boneAnim.rotation, time);
-                        if (nextRot) rot = nextRot;
+                        var nextRot = this._evalAnimVec3(boneAnim.rotation, entryContext, rotAccum, entryPreviewPreset);
+                        if (nextRot) {
+                            rotAccum[0] += nextRot[0] * blendWeight;
+                            rotAccum[1] += nextRot[1] * blendWeight;
+                            rotAccum[2] += nextRot[2] * blendWeight;
+                        }
                     }
                     if (boneAnim.position) {
-                        var nextPos = this._evalAnimVec3(boneAnim.position, time);
-                        if (nextPos) pos = [basePivot[0] + nextPos[0], basePivot[1] + nextPos[1], basePivot[2] + nextPos[2]];
+                        var nextPos = this._evalAnimVec3(boneAnim.position, entryContext, posAccum, entryPreviewPreset);
+                        if (nextPos) {
+                            posAccum[0] += nextPos[0] * blendWeight;
+                            posAccum[1] += nextPos[1] * blendWeight;
+                            posAccum[2] += nextPos[2] * blendWeight;
+                        }
                     }
                 }
+
+                var rot = [baseRot[0] + rotAccum[0], baseRot[1] + rotAccum[1], baseRot[2] + rotAccum[2]];
+                var pos = [basePivot[0] + posAccum[0], basePivot[1] + posAccum[1], basePivot[2] + posAccum[2]];
+
+                this._applyPointerLookOverride(boneName, bone, group, rot);
 
                 group.rotation.set(-rot[0] * Math.PI / 180, -rot[1] * Math.PI / 180, rot[2] * Math.PI / 180);
                 var localPos = this._getBoneLocalPosition(bone, pos, this._currentGeoData);
@@ -839,36 +1036,302 @@
             this._transformControls.setSpace('local');
         }
 
-        _evalAnimVec3(value, time) {
-            if (!Array.isArray(value)) return null;
-            var out = [0, 0, 0];
-            for (var i = 0; i < 3; i++) {
-                out[i] = this._evalAnimScalar(value[i], time);
+        _buildAnimationExecutionContext(entry, time, previewPreset) {
+            var context = {
+                animTime: time,
+                lifeTime: time,
+                timeStamp: time,
+                animationLength: entry && entry.meta ? Number(entry.meta.animationLength) || 0 : 0,
+                loop: !!(entry && entry.meta && entry.meta.loop)
+            };
+            if (!entry || !entry.meta || !entry.meta.animTimeUpdate) {
+                return context;
             }
-            return out;
+            var animTime = this._evalAnimScalar(entry.meta.animTimeUpdate, context, 0, previewPreset);
+            context.animTime = Number(animTime) || 0;
+            return context;
         }
 
-        _evalAnimScalar(value, time) {
+        _resolveAnimationBlendWeight(entry, context, previewPreset) {
+            if (!entry || !entry.meta || entry.meta.blendWeight === undefined || entry.meta.blendWeight === null || entry.meta.blendWeight === '') {
+                return 1;
+            }
+            if (typeof entry.meta.blendWeight === 'number') {
+                return entry.meta.blendWeight;
+            }
+            var value = this._evalAnimScalar(entry.meta.blendWeight, context || { animTime: 0, lifeTime: 0, timeStamp: 0 }, 0, previewPreset || null);
+            return Number.isFinite(value) ? value : 1;
+        }
+
+        _evalAnimVec3(value, context, currentValue, previewPreset) {
+            if (Array.isArray(value)) {
+                var out = [0, 0, 0];
+                for (var i = 0; i < 3; i++) {
+                    out[i] = this._evalAnimScalar(value[i], context, currentValue ? currentValue[i] : 0, previewPreset);
+                }
+                return out;
+            }
+            if (value && typeof value === 'object') {
+                return this._evalAnimKeyframes(value, context, currentValue, previewPreset, 3);
+            }
+            return null;
+        }
+
+        _evalAnimScalar(value, context, currentValue, previewPreset) {
             if (typeof value === 'number') return value;
+            if (value && typeof value === 'object') {
+                var keyframed = this._evalAnimKeyframes(value, context, currentValue, previewPreset, 1);
+                return Number(keyframed) || 0;
+            }
             if (typeof value !== 'string') return 0;
             var molang = this._animationState.molang;
             if (!molang) return 0;
             var expression = String(value).replace(/\bMath\./g, 'math.');
+            var envContext = context || { animTime: 0, lifeTime: 0, timeStamp: 0 };
+            var preset = previewPreset || ModelViewer._buildPreviewPresetState(null, envContext.animTime || 0);
+            var pointerLook = this._pointerLookCurrent || { yaw: 0, pitch: 0 };
             molang.updateExecutionEnv({
-                'query.anim_time': time,
-                'query.life_time': time,
-                'query.modified_move_speed': 1,
-                'query.target_x_rotation': 0,
-                'query.target_y_rotation': 0,
-                'query.head_y_rotation': function () { return 0; },
-                'query.time_stamp': time,
-                'variable.tcos0': Math.cos(time * 6) * 30
+                'query.anim_time': envContext.animTime || 0,
+                'query.life_time': envContext.lifeTime || 0,
+                'query.modified_move_speed': preset.moveSpeed,
+                'query.modified_distance_moved': preset.distanceMoved,
+                'query.cape_flap_amount': preset.capeFlapAmount,
+                'query.is_sneaking': preset.isSneaking ? 1 : 0,
+                'query.is_swimming': 0,
+                'query.target_x_rotation': pointerLook.pitch,
+                'query.target_y_rotation': pointerLook.yaw,
+                'query.head_y_rotation': function () { return pointerLook.yaw; },
+                'query.get_root_locator_offset': function () { return 0; },
+                'query.time_stamp': envContext.timeStamp || 0,
+                'variable.tcos0': preset.tcos0,
+                'variable.swim_amount': 0,
+                'this': Number(currentValue) || 0
             }, true);
             try {
                 return Number(molang.execute(expression)) || 0;
             } catch (e) {
                 return 0;
             }
+        }
+
+        _evalAnimKeyframes(timeline, context, currentValue, previewPreset, componentCount) {
+            var keyframes = this._parseAnimKeyframes(timeline);
+            if (!keyframes.length) {
+                return componentCount === 1 ? 0 : null;
+            }
+            var sampleTime = this._normalizeAnimSampleTime(context ? context.animTime : 0, context);
+            var first = keyframes[0];
+            if (sampleTime <= first.time) {
+                return this._resolveAnimKeyframeValue(first.value, 'pre', context, currentValue, previewPreset, componentCount);
+            }
+
+            for (var i = 0; i < keyframes.length; i++) {
+                var frame = keyframes[i];
+                if (sampleTime === frame.time) {
+                    return this._resolveAnimKeyframeValue(frame.value, 'post', context, currentValue, previewPreset, componentCount);
+                }
+                var next = keyframes[i + 1];
+                if (!next) continue;
+                if (sampleTime < next.time) {
+                    var startValue = this._resolveAnimKeyframeValue(frame.value, 'post', context, currentValue, previewPreset, componentCount);
+                    var endValue = this._resolveAnimKeyframeValue(next.value, 'pre', context, currentValue, previewPreset, componentCount);
+                    var span = next.time - frame.time;
+                    var alpha = span > 0 ? (sampleTime - frame.time) / span : 0;
+                    return this._interpolateAnimValue(startValue, endValue, alpha, componentCount);
+                }
+            }
+
+            return this._resolveAnimKeyframeValue(keyframes[keyframes.length - 1].value, 'post', context, currentValue, previewPreset, componentCount);
+        }
+
+        _parseAnimKeyframes(timeline) {
+            if (!timeline || typeof timeline !== 'object' || Array.isArray(timeline)) return [];
+            return Object.keys(timeline)
+                .map(function (key) {
+                    return { rawKey: key, time: Number(key), value: timeline[key] };
+                })
+                .filter(function (entry) {
+                    return Number.isFinite(entry.time);
+                })
+                .sort(function (a, b) {
+                    return a.time - b.time;
+                });
+        }
+
+        _normalizeAnimSampleTime(time, context) {
+            var sampleTime = Number(time);
+            if (!Number.isFinite(sampleTime)) sampleTime = 0;
+            var animationLength = context ? Number(context.animationLength) || 0 : 0;
+            if (animationLength <= 0) return sampleTime;
+            if (context && context.loop) {
+                sampleTime = sampleTime % animationLength;
+                if (sampleTime < 0) sampleTime += animationLength;
+                return sampleTime;
+            }
+            if (sampleTime < 0) return 0;
+            if (sampleTime > animationLength) return animationLength;
+            return sampleTime;
+        }
+
+        _resolveAnimKeyframeValue(keyframeValue, edge, context, currentValue, previewPreset, componentCount) {
+            var resolved = keyframeValue;
+            if (resolved && typeof resolved === 'object' && !Array.isArray(resolved)) {
+                if (edge === 'pre' && resolved.pre !== undefined) {
+                    resolved = resolved.pre;
+                } else if (edge === 'post' && resolved.post !== undefined) {
+                    resolved = resolved.post;
+                } else if (resolved.post !== undefined) {
+                    resolved = resolved.post;
+                } else if (resolved.pre !== undefined) {
+                    resolved = resolved.pre;
+                }
+            }
+            return this._evalAnimValueComponents(resolved, context, currentValue, previewPreset, componentCount);
+        }
+
+        _evalAnimValueComponents(value, context, currentValue, previewPreset, componentCount) {
+            if (componentCount === 1) {
+                return this._evalAnimScalarComponent(value, context, currentValue, previewPreset);
+            }
+            if (!Array.isArray(value)) return null;
+            var out = new Array(componentCount);
+            for (var i = 0; i < componentCount; i++) {
+                out[i] = this._evalAnimScalarComponent(value[i], context, currentValue ? currentValue[i] : 0, previewPreset);
+            }
+            return out;
+        }
+
+        _evalAnimScalarComponent(value, context, currentValue, previewPreset) {
+            if (typeof value === 'number') return value;
+            if (typeof value === 'string') return this._evalAnimScalar(value, context, currentValue, previewPreset);
+            return Number(value) || 0;
+        }
+
+        _interpolateAnimValue(startValue, endValue, alpha, componentCount) {
+            var t = Math.max(0, Math.min(1, Number(alpha) || 0));
+            if (componentCount === 1) {
+                var startScalar = Number(startValue) || 0;
+                var endScalar = Number(endValue) || 0;
+                return startScalar + ((endScalar - startScalar) * t);
+            }
+            if (!Array.isArray(startValue) || !Array.isArray(endValue)) {
+                return Array.isArray(startValue) ? startValue : endValue;
+            }
+            var out = new Array(componentCount);
+            for (var i = 0; i < componentCount; i++) {
+                var startComponent = Number(startValue[i]) || 0;
+                var endComponent = Number(endValue[i]) || 0;
+                out[i] = startComponent + ((endComponent - startComponent) * t);
+            }
+            return out;
+        }
+
+        _setPointerLookClientPosition(clientX, clientY) {
+            if (!this._lookAtPointerEnabled) return;
+            this._pointerLookClient = {
+                x: Number(clientX) || 0,
+                y: Number(clientY) || 0
+            };
+        }
+
+        _updatePointerLookFromClientPosition() {
+            if (!this._lookAtPointerEnabled || !this.canvasEl || !this.camera) return;
+            if (!this._pointerLookClient) return;
+            var rect = this.canvasEl.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+            var headPose = this._getPointerLookHeadPose();
+            if (!headPose) return;
+
+            this.camera.updateMatrixWorld(true);
+            if (this._rootGroup) {
+                this._rootGroup.updateMatrixWorld(true);
+            }
+
+            var ndc = new THREE.Vector2(
+                ((this._pointerLookClient.x - rect.left) / rect.width) * 2 - 1,
+                -(((this._pointerLookClient.y - rect.top) / rect.height) * 2 - 1)
+            );
+            this._raycaster.setFromCamera(ndc, this.camera);
+
+            var headWorld = headPose.worldPosition;
+            var ray = this._raycaster.ray;
+            var planeNormal = new THREE.Vector3();
+            this.camera.getWorldDirection(planeNormal);
+            var cameraWorld = new THREE.Vector3();
+            this.camera.getWorldPosition(cameraWorld);
+            var cameraToHead = headWorld.clone().sub(cameraWorld);
+            var headDepth = Math.max(1, planeNormal.dot(cameraToHead));
+            var depthBias = Math.max(4, ((this._modelSize && Math.max(this._modelSize[0] || 0, this._modelSize[1] || 0, this._modelSize[2] || 0)) || 16) * 0.35);
+            var planeDepth = Math.max(2, headDepth - depthBias);
+            var planePoint = cameraWorld.clone().add(planeNormal.clone().multiplyScalar(planeDepth));
+            var plane = new THREE.Plane().setFromNormalAndCoplanarPoint(planeNormal, planePoint);
+            var targetWorld = new THREE.Vector3();
+            if (!ray.intersectPlane(plane, targetWorld)) {
+                var fallbackDistance = Math.max(8, planeDepth);
+                targetWorld.copy(ray.origin).add(ray.direction.clone().multiplyScalar(fallbackDistance));
+            }
+
+            var parent = headPose.parent;
+            var headLocal = parent.worldToLocal(headWorld.clone());
+            var targetLocal = parent.worldToLocal(targetWorld.clone());
+            var localVector = targetLocal.sub(headLocal);
+            var horizontal = Math.sqrt((localVector.x * localVector.x) + (localVector.z * localVector.z));
+            if (horizontal < 0.0001 && Math.abs(localVector.y) < 0.0001) return;
+
+            var yaw = THREE.MathUtils.radToDeg(Math.atan2(localVector.x, -localVector.z));
+            var pitch = THREE.MathUtils.radToDeg(Math.atan2(localVector.y, Math.max(horizontal, 0.0001)));
+
+            this._pointerLookTarget = {
+                yaw: Math.max(-110, Math.min(110, yaw)),
+                pitch: Math.max(-50, Math.min(50, pitch))
+            };
+        }
+
+        _updatePointerLookState() {
+            var target = this._lookAtPointerEnabled ? this._pointerLookTarget : { yaw: 0, pitch: 0 };
+            this._pointerLookCurrent.yaw += (target.yaw - this._pointerLookCurrent.yaw) * 0.45;
+            this._pointerLookCurrent.pitch += (target.pitch - this._pointerLookCurrent.pitch) * 0.45;
+        }
+
+        _applyPointerLookOverride(boneName, bone, group, rotation) {
+            if (!this._lookAtPointerEnabled || !Array.isArray(rotation)) return;
+            if (this._normalizeHumanBoneName(boneName) !== 'head') return;
+            var pointerLook = this._pointerLookCurrent || { yaw: 0, pitch: 0 };
+            var baseRotation = bone && Array.isArray(bone.rotation) ? bone.rotation : [0, 0, 0];
+            rotation[0] = (Number(baseRotation[0]) || 0) - pointerLook.pitch;
+            rotation[1] = (Number(baseRotation[1]) || 0) + pointerLook.yaw;
+        }
+
+        _getPointerLookHeadPose() {
+            if (!this._lookAtPointerEnabled || !this.camera) return null;
+            var headGroup = this._findPointerLookHeadGroup();
+            if (!headGroup) return null;
+            var worldPosition = new THREE.Vector3();
+            headGroup.getWorldPosition(worldPosition);
+            return {
+                group: headGroup,
+                parent: headGroup.parent || this._rootGroup || this.scene,
+                worldPosition: worldPosition
+            };
+        }
+
+        _findPointerLookHeadGroup() {
+            if (!this._boneGroups) return null;
+            if (this._boneGroups.head) return this._boneGroups.head;
+            var keys = Object.keys(this._boneGroups);
+            for (var i = 0; i < keys.length; i++) {
+                if (this._normalizeHumanBoneName(keys[i]) === 'head') {
+                    return this._boneGroups[keys[i]];
+                }
+            }
+            return null;
+        }
+
+        _getPreviewPresetState(selection, time) {
+            if (!selection || selection.indexOf('__action__:') !== 0) {
+                return ModelViewer._buildPreviewPresetState(null, time);
+            }
+            return ModelViewer._buildPreviewPresetState(selection.slice(11), time);
         }
 
         async _loadTexture(texturePath, project) {
@@ -1119,10 +1582,10 @@
          */
         _buildPolyMeshGeometry(polyMesh, texW, texH, pivot) {
             var verts = polyMesh.positions || [];
-            var norms = polyMesh.normals || [];
             var uvData = polyMesh.uvs || [];
             var polys = polyMesh.polys || [];
             var normalized = polyMesh.normalized_uvs !== false;
+            var normalPlan = this._resolvePolyMeshNormals(polyMesh, polys);
 
             if (verts.length === 0 || polys.length === 0) return null;
 
@@ -1140,13 +1603,15 @@
                     for (var ci = 0; ci < tri.length; ci++) {
                         var corner = tri[ci];
                         var vIdx = corner[0] || 0;
-                        var nIdx = corner[1] !== undefined ? corner[1] : 0;
                         var uvIdx = corner[2] !== undefined ? corner[2] : 0;
                         var v = verts[vIdx] || [0, 0, 0];
                         // Offset by pivot
                         positions.push(-(v[0] - pivot[0]), v[1] - pivot[1], v[2] - pivot[2]);
-                        var nrm = norms[nIdx] || [0, 1, 0];
-                        normals.push(-nrm[0], nrm[1], nrm[2]);
+                        if (normalPlan.useSourceNormals) {
+                            var nIdx = corner[1] !== undefined ? corner[1] : 0;
+                            var nrm = normalPlan.normals[nIdx] || [0, 1, 0];
+                            normals.push(-nrm[0], nrm[1], nrm[2]);
+                        }
                         var uv = uvData[uvIdx] || [0, 0];
                         var uu = uv[0], vv = uv[1];
                         if (normalized) { uu *= texW; vv *= texH; }
@@ -1160,10 +1625,70 @@
 
             var geometry = new THREE.BufferGeometry();
             geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-            geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
             geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
             geometry.setIndex(indices);
+            if (normalPlan.useSourceNormals) {
+                geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+            } else {
+                geometry.computeVertexNormals();
+            }
             return geometry;
+        }
+
+        _resolvePolyMeshNormals(polyMesh, polys) {
+            var mode = this._polyMeshNormalMode;
+            if (mode === 'recalculate') {
+                return { useSourceNormals: false, normals: [] };
+            }
+
+            var sourceNormals = Array.isArray(polyMesh && polyMesh.normals) ? polyMesh.normals : [];
+            if (!sourceNormals.length) {
+                return { useSourceNormals: false, normals: [] };
+            }
+
+            var normalizedNormals = new Array(sourceNormals.length);
+            for (var i = 0; i < sourceNormals.length; i++) {
+                var normal = sourceNormals[i];
+                if (!Array.isArray(normal) || normal.length < 3) {
+                    return { useSourceNormals: false, normals: [] };
+                }
+                var nx = Number(normal[0]);
+                var ny = Number(normal[1]);
+                var nz = Number(normal[2]);
+                if (!Number.isFinite(nx) || !Number.isFinite(ny) || !Number.isFinite(nz)) {
+                    return { useSourceNormals: false, normals: [] };
+                }
+                var length = Math.sqrt((nx * nx) + (ny * ny) + (nz * nz));
+                if (length < 1e-5) {
+                    return { useSourceNormals: false, normals: [] };
+                }
+                normalizedNormals[i] = [nx / length, ny / length, nz / length];
+            }
+
+            var cornersChecked = 0;
+            for (var pi = 0; pi < polys.length; pi++) {
+                var poly = polys[pi];
+                if (!Array.isArray(poly) || poly.length < 3) continue;
+                for (var ci = 0; ci < poly.length; ci++) {
+                    var corner = poly[ci];
+                    if (!Array.isArray(corner)) {
+                        return { useSourceNormals: false, normals: [] };
+                    }
+                    var nIdx = corner[1] !== undefined ? corner[1] : 0;
+                    if (!Number.isInteger(nIdx) || nIdx < 0 || nIdx >= normalizedNormals.length) {
+                        return { useSourceNormals: false, normals: [] };
+                    }
+                    cornersChecked += 1;
+                }
+            }
+
+            if (mode === 'source') {
+                return { useSourceNormals: true, normals: normalizedNormals };
+            }
+
+            return cornersChecked > 0
+                ? { useSourceNormals: true, normals: normalizedNormals }
+                : { useSourceNormals: false, normals: [] };
         }
 
         // ================================================================
@@ -1632,6 +2157,19 @@
             return null;
         }
 
+        _findBoneByCanonicalName(boneName, geoData) {
+            if (!geoData || !geoData.bones) return null;
+            var canonical = this._normalizeHumanBoneName(boneName);
+            if (!canonical) return null;
+            for (var i = 0; i < geoData.bones.length; i++) {
+                var currentName = geoData.bones[i].name || ('bone_' + i);
+                if (this._normalizeHumanBoneName(currentName) === canonical) {
+                    return geoData.bones[i];
+                }
+            }
+            return null;
+        }
+
         /**
          * Rebuild cube meshes for a single bone (after pivot change).
          */
@@ -1797,10 +2335,10 @@
                 if (bone.poly_mesh) {
                     var pm = bone.poly_mesh;
                     var verts = pm.positions || [];
-                    var norms = pm.normals || [];
                     var uvData = pm.uvs || [];
                     var polys = pm.polys || [];
                     var normalized = pm.normalized_uvs !== false;
+                    var normalPlan = this._resolvePolyMeshNormals(pm, polys);
 
                     if (verts.length > 0 && polys.length > 0) {
                         for (var pi = 0; pi < polys.length; pi++) {
@@ -1811,12 +2349,14 @@
                                 for (var ci = 0; ci < tri.length; ci++) {
                                     var corner = tri[ci];
                                     var vIdx = corner[0] || 0;
-                                    var nIdx = corner[1] !== undefined ? corner[1] : 0;
                                     var uvIdx = corner[2] !== undefined ? corner[2] : 0;
                                     var v = verts[vIdx] || [0, 0, 0];
                                     allPositions.push(v[0], v[1], -v[2]);
-                                    var nrm = norms[nIdx] || [0, 1, 0];
-                                    allNormals.push(nrm[0], nrm[1], -nrm[2]);
+                                    if (normalPlan.useSourceNormals) {
+                                        var nIdx = corner[1] !== undefined ? corner[1] : 0;
+                                        var nrm = normalPlan.normals[nIdx] || [0, 1, 0];
+                                        allNormals.push(nrm[0], nrm[1], -nrm[2]);
+                                    }
                                     var uv = uvData[uvIdx] || [0, 0];
                                     var uu = uv[0], vv = uv[1];
                                     if (normalized) { uu *= texW; vv *= texH; }
@@ -1833,9 +2373,13 @@
 
             var geometry = new THREE.BufferGeometry();
             geometry.setAttribute('position', new THREE.Float32BufferAttribute(allPositions, 3));
-            geometry.setAttribute('normal', new THREE.Float32BufferAttribute(allNormals, 3));
             geometry.setAttribute('uv', new THREE.Float32BufferAttribute(allUVs, 2));
             geometry.setIndex(allIndices);
+            if (allNormals.length === allPositions.length) {
+                geometry.setAttribute('normal', new THREE.Float32BufferAttribute(allNormals, 3));
+            } else {
+                geometry.computeVertexNormals();
+            }
 
             // Center the model so feet are at y=0
             geometry.computeBoundingBox();
@@ -2393,6 +2937,135 @@
     }
 
     ModelViewer.DEFAULT_VIEW_ROTATION = Object.freeze({ x: -0.3, y: Math.PI - 0.6 });
+    ModelViewer.HUMAN_BONE_ALIASES = Object.freeze({
+        root: [/^root$/i, /^mainroot$/i, /^base$/i],
+        waist: [/^waist$/i, /^hips?$/i, /^pelvis$/i, /^torso[_-]?base$/i],
+        body: [/^body$/i, /^torso$/i, /^chest$/i, /^spine$/i],
+        head: [/^head$/i, /^helmet$/i, /^skull$/i],
+        cape: [/^cape$/i, /^cloak$/i],
+        leftarm: [/^left.+arm$/i, /^arm.+left$/i, /^l(?:eft)?[_-]?arm$/i, /^arm[_-]?l(?:eft)?$/i, /^lefthand$/i, /^hand[_-]?left$/i],
+        rightarm: [/^right.+arm$/i, /^arm.+right$/i, /^r(?:ight)?[_-]?arm$/i, /^arm[_-]?r(?:ight)?$/i, /^righthand$/i, /^hand[_-]?right$/i],
+        leftleg: [/^left.+leg$/i, /^leg.+left$/i, /^l(?:eft)?[_-]?leg$/i, /^leg[_-]?l(?:eft)?$/i],
+        rightleg: [/^right.+leg$/i, /^leg.+right$/i, /^r(?:ight)?[_-]?leg$/i, /^leg[_-]?r(?:ight)?$/i]
+    });
+    ModelViewer.PREVIEW_ANIMATION_PRESETS = Object.freeze([
+        {
+            key: 'walk',
+            labelKey: 'preview.action.walk'
+        },
+        {
+            key: 'run',
+            labelKey: 'preview.action.run'
+        },
+        {
+            key: 'walkRunTransition',
+            labelKey: 'preview.action.walkRunTransition'
+        },
+        {
+            key: 'sneak',
+            labelKey: 'preview.action.sneak'
+        },
+        {
+            key: 'sneakMove',
+            labelKey: 'preview.action.sneakMove'
+        }
+    ]);
+
+    ModelViewer.PREVIEW_ACTION_DEFINITIONS = Object.freeze({
+        walk: Object.freeze({
+            animationIds: Object.freeze([
+                'animation.player.cape',
+                'animation.player.move.arms',
+                'animation.player.move.legs'
+            ])
+        }),
+        run: Object.freeze({
+            animationIds: Object.freeze([
+                'animation.player.cape',
+                'animation.player.move.arms',
+                'animation.player.move.legs'
+            ])
+        }),
+        walkRunTransition: Object.freeze({
+            animationIds: Object.freeze([
+                'animation.player.cape',
+                'animation.player.move.arms',
+                'animation.player.move.legs'
+            ])
+        }),
+        sneak: Object.freeze({
+            animationIds: Object.freeze([
+                'animation.player.cape',
+                'animation.player.sneaking'
+            ])
+        }),
+        sneakMove: Object.freeze({
+            animationIds: Object.freeze([
+                'animation.player.cape',
+                'animation.player.sneaking',
+                'animation.player.move.arms',
+                'animation.player.move.legs'
+            ])
+        })
+    });
+
+    ModelViewer._buildPreviewPresetState = function (presetKey, time) {
+        var state = {
+            actionKey: presetKey || '',
+            moveSpeed: 0,
+            distanceMoved: 0,
+            capeFlapAmount: 0.02,
+            isSneaking: false,
+            tcos0: 0,
+            limbCycleSpeed: 0,
+            limbPhase: 0
+        };
+        var walkCycleSpeed = 4.5;
+        var runCycleSpeed = 8.5;
+        var walkAmplitude = 12;
+        var runAmplitude = 24;
+        var distanceScale = 0;
+        var walkRunTransitionPhase = (walkCycleSpeed * time) + (((runCycleSpeed - walkCycleSpeed) / 1.45) * (1 - Math.cos(time * 1.45)) * 0.5);
+
+        if (presetKey === 'walk') {
+            state.moveSpeed = 0.35;
+            distanceScale = 1.1;
+            state.capeFlapAmount = 0.16;
+            state.tcos0 = Math.cos(time * walkCycleSpeed) * walkAmplitude;
+            state.limbCycleSpeed = walkCycleSpeed;
+        } else if (presetKey === 'run') {
+            state.moveSpeed = 1;
+            distanceScale = 2.4;
+            state.capeFlapAmount = 0.62;
+            state.tcos0 = Math.cos(time * runCycleSpeed) * runAmplitude;
+            state.limbCycleSpeed = runCycleSpeed;
+        } else if (presetKey === 'walkRunTransition') {
+            var blend = (Math.sin(time * 1.45) + 1) / 2;
+            var cycleSpeed = walkCycleSpeed + ((runCycleSpeed - walkCycleSpeed) * blend);
+            var amplitude = walkAmplitude + ((runAmplitude - walkAmplitude) * blend);
+            state.moveSpeed = 0.3 + (0.7 * blend);
+            distanceScale = 1 + (1.5 * blend);
+            state.capeFlapAmount = 0.12 + (0.58 * blend);
+            state.tcos0 = Math.cos(walkRunTransitionPhase) * amplitude;
+            state.limbCycleSpeed = 0;
+            state.limbPhase = walkRunTransitionPhase;
+        } else if (presetKey === 'sneak') {
+            state.isSneaking = true;
+            state.moveSpeed = 0.08;
+            state.capeFlapAmount = 0.08;
+            state.tcos0 = 0;
+        } else if (presetKey === 'sneakMove') {
+            state.isSneaking = true;
+            state.moveSpeed = 0.18;
+            distanceScale = 0.55;
+            state.capeFlapAmount = 0.18;
+            state.tcos0 = Math.cos(time * 3.2) * 12;
+            state.limbCycleSpeed = 3.2;
+        }
+
+        state.distanceMoved = time * distanceScale;
+        return state;
+    };
 
     window.SkinApex.ModelViewer = ModelViewer;
 })();

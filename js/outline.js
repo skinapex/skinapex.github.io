@@ -12,15 +12,15 @@
     const Icons = SkinApex.Icons;
     const I18n = SkinApex.I18n;
     const HUMAN_BONE_RULES = {
-        root: { label: 'Root', canonicalName: 'root', expectedParent: null, required: true },
-        waist: { label: 'Waist', canonicalName: 'waist', expectedParent: 'root', required: false },
-        body: { label: 'Body', canonicalName: 'body', expectedParent: 'waist', fallbackParents: ['root'], required: true },
-        head: { label: 'Head', canonicalName: 'head', expectedParent: 'body', required: true },
-        cape: { label: 'Cape', canonicalName: 'cape', expectedParent: 'body', fallbackParents: ['head'], required: false },
-        rightarm: { label: 'Right Arm', canonicalName: 'rightArm', expectedParent: 'body', required: true },
-        leftarm: { label: 'Left Arm', canonicalName: 'leftArm', expectedParent: 'body', required: true },
-        rightleg: { label: 'Right Leg', canonicalName: 'rightLeg', expectedParent: 'root', required: true },
-        leftleg: { label: 'Left Leg', canonicalName: 'leftLeg', expectedParent: 'root', required: true }
+        root: { label: 'Root', canonicalName: 'root', acceptedNames: ['root'], expectedParent: null, required: true },
+        waist: { label: 'Waist', canonicalName: 'waist', acceptedNames: ['waist'], expectedParent: 'root', required: false },
+        body: { label: 'Body', canonicalName: 'body', acceptedNames: ['body'], expectedParent: 'waist', fallbackParents: ['root'], required: true },
+        head: { label: 'Head', canonicalName: 'head', acceptedNames: ['head'], expectedParent: 'body', required: true },
+        cape: { label: 'Cape', canonicalName: 'cape', acceptedNames: ['cape'], expectedParent: 'body', fallbackParents: ['head'], required: false },
+        rightarm: { label: 'Right Arm', canonicalName: 'rightArm', acceptedNames: ['rightArm', 'rightarm'], expectedParent: 'body', required: true },
+        leftarm: { label: 'Left Arm', canonicalName: 'leftArm', acceptedNames: ['leftArm', 'leftarm'], expectedParent: 'body', required: true },
+        rightleg: { label: 'Right Leg', canonicalName: 'rightLeg', acceptedNames: ['rightLeg', 'rightleg'], expectedParent: 'root', required: true },
+        leftleg: { label: 'Left Leg', canonicalName: 'leftLeg', acceptedNames: ['leftLeg', 'leftleg'], expectedParent: 'root', required: true }
     };
     const HUMAN_BONE_ALIASES = {
         root: [/^root$/i, /^mainroot$/i, /^base$/i],
@@ -541,7 +541,8 @@
                 }
 
                 var canonicalName = rule.canonicalName || existing.actualName;
-                if (existing.actualName !== canonicalName) {
+                var acceptedNames = Array.isArray(rule.acceptedNames) ? rule.acceptedNames : [canonicalName];
+                if (acceptedNames.indexOf(existing.actualName) === -1) {
                     var canonicalPresent = boneMap[this._normalizeBoneName(canonicalName)] && boneMap[this._normalizeBoneName(canonicalName)].actualName === canonicalName;
                     if (canonicalPresent) {
                         result.warningsByBone[existing.actualName] = I18n.format('outline.error.namingDuplicate', { actual: existing.actualName, expected: canonicalName });

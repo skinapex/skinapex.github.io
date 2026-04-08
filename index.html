@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkinApex - Minecraft Bedrock Skin Pack Editor</title>
-    <meta name="description" content="SkinApex is a browser-based Minecraft Bedrock skin pack editor with live 3D preview, bone editing, animation mapping, and pack utilities.">
+    <meta name="description" content="SkinApex is a browser-based Minecraft Bedrock skin pack editor with live 3D and UV preview, bone editing, animation mapping, preview actions, and pack utilities.">
     <meta name="keywords" content="Minecraft Bedrock skin editor, Bedrock skin pack editor, Minecraft skin pack manager, Minecraft Bedrock animation editor, Bedrock geometry editor">
     <meta name="author" content="SkinApex contributors">
     <meta name="robots" content="index, follow">
@@ -13,16 +13,16 @@
     <link rel="canonical" href="https://skinapex.github.io/">
     <meta property="og:type" content="website">
     <meta property="og:title" content="SkinApex - Minecraft Bedrock Skin Pack Editor">
-    <meta property="og:description" content="Edit Minecraft Bedrock skin packs in the browser with live 3D preview, bone tools, animation mapping, and pack utilities.">
+    <meta property="og:description" content="Edit Minecraft Bedrock skin packs in the browser with live 3D and UV preview, bone tools, animation mapping, preview actions, and pack utilities.">
     <meta property="og:url" content="https://skinapex.github.io/">
     <meta property="og:image" content="https://skinapex.github.io/og-image.svg">
-    <meta property="og:image:alt" content="SkinApex - Minecraft Bedrock skin pack editor with 3D preview, bone editing, and animation tools.">
+    <meta property="og:image:alt" content="SkinApex - Minecraft Bedrock skin pack editor with 3D and UV preview, bone editing, and animation tools.">
     <meta property="og:site_name" content="SkinApex">
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="SkinApex - Minecraft Bedrock Skin Pack Editor">
-    <meta name="twitter:description" content="Browser-based Minecraft Bedrock skin pack editor with live 3D preview, bone editing, and animation tools.">
+    <meta name="twitter:description" content="Browser-based Minecraft Bedrock skin pack editor with live 3D and UV preview, bone editing, preview actions, and animation tools.">
     <meta name="twitter:image" content="https://skinapex.github.io/og-image.svg">
-    <meta name="twitter:image:alt" content="SkinApex - Minecraft Bedrock skin pack editor with 3D preview, bone editing, and animation tools.">
+    <meta name="twitter:image:alt" content="SkinApex - Minecraft Bedrock skin pack editor with 3D and UV preview, bone editing, and animation tools.">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="apple-touch-icon" href="favicon.svg">
     <link rel="stylesheet" href="css/style.css">
@@ -34,7 +34,7 @@
             "applicationCategory": "DeveloperApplication",
             "operatingSystem": "Web",
             "url": "https://skinapex.github.io/",
-            "description": "Browser-based Minecraft Bedrock skin pack editor with live 3D preview, bone editing, animation mapping, and pack utilities.",
+            "description": "Browser-based Minecraft Bedrock skin pack editor with live 3D and UV preview, bone editing, animation mapping, preview actions, and pack utilities.",
             "softwareHelp": "README.md"
         }
     </script>
@@ -75,6 +75,31 @@
                         <button class="menu-action" data-action="save" type="button">
                             <span data-i18n="menu.save">Save</span>
                             <span class="menu-shortcut">Ctrl+S</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="menu-item" data-menu="edit">
+                    <span class="menu-trigger" data-i18n="menu.edit">Edit</span>
+                    <div class="menu-dropdown" data-dropdown="edit">
+                        <button class="menu-action menu-action-history" data-action="undo" data-history-direction="undo" type="button">
+                            <span data-i18n="menu.undo">Undo</span>
+                            <span class="menu-shortcut">Ctrl+Z</span>
+                            <span class="menu-submenu-caret" aria-hidden="true">&#9654;</span>
+                            <div class="menu-submenu" data-history-menu="undo">
+                                <div class="menu-submenu-fade menu-submenu-fade-top" aria-hidden="true"></div>
+                                <div class="menu-submenu-content"></div>
+                                <div class="menu-submenu-fade menu-submenu-fade-bottom" aria-hidden="true"></div>
+                            </div>
+                        </button>
+                        <button class="menu-action menu-action-history" data-action="redo" data-history-direction="redo" type="button">
+                            <span data-i18n="menu.redo">Redo</span>
+                            <span class="menu-shortcut">Ctrl+Y</span>
+                            <span class="menu-submenu-caret" aria-hidden="true">&#9654;</span>
+                            <div class="menu-submenu" data-history-menu="redo">
+                                <div class="menu-submenu-fade menu-submenu-fade-top" aria-hidden="true"></div>
+                                <div class="menu-submenu-content"></div>
+                                <div class="menu-submenu-fade menu-submenu-fade-bottom" aria-hidden="true"></div>
+                            </div>
                         </button>
                     </div>
                 </div>
@@ -166,7 +191,7 @@
                     <h1 class="welcome-title">SkinApex</h1>
                     <p class="welcome-subtitle" data-i18n="welcome.subtitle">Minecraft Bedrock Edition Skin Pack Manager</p>
                     <p class="welcome-subtitle" style="max-width:720px;margin:0 auto;line-height:1.6;">
-                        Edit Minecraft Bedrock skin packs directly in the browser with live 3D preview, bone editing, animation mapping, file browsing, and pack utilities.
+                        Edit Minecraft Bedrock skin packs directly in the browser with live 3D and UV preview, bone editing, animation mapping, preview actions, and pack utilities.
                     </p>
 
                     <div class="welcome-drop" id="welcome-drop">
@@ -191,12 +216,12 @@
                         <h2 class="welcome-copy-title">A Bedrock skin pack editor built for real project files</h2>
                         <p class="welcome-copy-text">
                             SkinApex helps you work with Minecraft Bedrock skin packs in the browser. Open existing packs, inspect files,
-                            preview models in 3D, edit bones, update skin metadata, and manage animation mappings without setting up a backend.
+                            preview models in 3D and UV, edit bones, test bound animations and preview actions, update skin metadata, and manage animation mappings without setting up a backend.
                         </p>
                         <ul class="welcome-feature-list">
                             <li>Supports <strong>.mcpack</strong>, <strong>.zip</strong>, loose files, and folders</li>
-                            <li>Includes live 3D preview, bone outline tools, and transform editing</li>
-                            <li>Supports skin animation mapping with official Bedrock animation autocomplete</li>
+                            <li>Includes live 3D preview, UV view, bone outline tools, and transform editing</li>
+                            <li>Supports skin animation mapping, preview actions, and official Bedrock animation autocomplete</li>
                             <li>Works on desktop and mobile layouts</li>
                         </ul>
                         <p class="welcome-copy-text">
@@ -210,7 +235,7 @@
                             <ul class="welcome-section-list">
                                 <li>Open Bedrock skin packs from archives or folders</li>
                                 <li>Inspect `manifest.json`, `skins.json`, textures, and geometry files</li>
-                                <li>Preview models with live 3D rendering</li>
+                                <li>Preview models with live 3D and UV rendering</li>
                                 <li>Edit bones, pivots, transforms, and skin metadata</li>
                                 <li>Manage animation mappings with official animation suggestions</li>
                             </ul>
@@ -291,7 +316,7 @@
                         <button class="detail-tab active" data-detail-tab="bone" type="button">Bone</button>
                         <button class="detail-tab" data-detail-tab="skin" type="button">Skin Properties</button>
                     </div>
-                    <!-- Outline Panel (shows when a skin is selected) -->
+                    <!-- Outline Panel (shown for the active skin and geometry context) -->
                     <div id="outline-panel" class="outline-section" style="display:none">
                         <div class="outline-section-header">
                             <span class="outline-section-title">OUTLINE</span>
@@ -300,7 +325,7 @@
                         <div class="outline-section-body" id="outline-body"></div>
                     </div>
                     <div class="panel-splitter" id="detail-splitter" aria-hidden="true"></div>
-                    <!-- Bone Editor Panel (shows when a bone is selected) -->
+                    <!-- Bone Editor Panel (shown for the active bone selection) -->
                     <div id="bone-editor-panel" class="bone-editor-panel" style="display:none"></div>
                     <div id="skin-properties-panel" class="skin-properties-panel" style="display:none"></div>
                 </div>
@@ -362,6 +387,7 @@
     <script src="js/vendor/molang.umd.js"></script>
     <script src="js/logger.js"></script>
     <script src="js/project.js"></script>
+    <script src="js/history.js"></script>
     <script src="js/tab-manager.js"></script>
     <script src="js/explorer.js"></script>
     <script src="js/skin-list.js"></script>
@@ -437,6 +463,7 @@
                 'App',
                 'Logger',
                 'Project',
+                'HistoryManager',
                 'TabManager',
                 'Explorer',
                 'SkinList',

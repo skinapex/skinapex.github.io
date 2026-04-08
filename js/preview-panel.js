@@ -20,6 +20,10 @@
             this._uvContainer = null;
             this._modeButtons = null;
             this._toolButtons = null;
+            this._animBar = null;
+            this._animBarToggle = null;
+            this._animBarContent = null;
+            this._animBarCollapsed = false;
             this._transformHint = null;
             this._mode = '3d';
             this._uvToolMode = 'edit';
@@ -29,6 +33,9 @@
             this._uvRenderToken = 0;
             this._selectedUvRect = null;
             this._onAnimationStateChanged = null;
+            this._polyMeshNormalMode = 'auto';
+            this._selectedAction = '__none__';
+            this._lookAtPointerEnabled = false;
         }
 
         setOnAnimationStateChanged(fn) {
@@ -62,7 +69,7 @@
             this._stopViewer();
             const token = ++this._uvRenderToken;
 
-            // Set up 3D viewer container
+            // Set up the preview shell with 3D and UV modes
             this.el.innerHTML = '';
             this.el.className = 'preview-3d-wrap';
 
@@ -87,6 +94,10 @@
             btnUv.className = 'preview-mode-btn';
             btnUv.type = 'button';
             btnUv.textContent = I18n.t('preview.mode.uv');
+            const btnOptions = document.createElement('button');
+            btnOptions.className = 'preview-options-btn';
+            btnOptions.type = 'button';
+            btnOptions.textContent = I18n.t('preview.options3d');
             viewTabs.appendChild(btn3d);
             viewTabs.appendChild(btnUv);
 
@@ -132,7 +143,7 @@
             tools.appendChild(btnPan);
             modeTabs.appendChild(tools);
             this.el.appendChild(modeTabs);
-            this._modeButtons = { btn3d: btn3d, btnUv: btnUv };
+            this._modeButtons = { btn3d: btn3d, btnUv: btnUv, btnOptions: btnOptions };
             this._toolButtons = {
                 btnMove: btnMove,
                 btnRotate: btnRotate,
@@ -143,23 +154,54 @@
                 btnPan: btnPan
             };
 
-            const animBar = document.createElement('div');
-            animBar.className = 'preview-anim-bar';
-            animBar.innerHTML =
-                '<label class="preview-anim-label">' + Utils.escapeHtml(I18n.t('preview.animation')) + '</label>' +
-                '<select class="preview-anim-select"></select>';
-            this.el.appendChild(animBar);
-            this._animationSelect = animBar.querySelector('.preview-anim-select');
-
             const viewsWrap = document.createElement('div');
             viewsWrap.className = 'preview-views-wrap';
             this.el.appendChild(viewsWrap);
 
-            // 3D canvas container
+            // 3D viewport container and overlay controls
             this._viewerContainer = document.createElement('div');
             this._viewerContainer.className = 'preview-3d-container';
             this._viewerContainer.style.cssText = 'flex:1;position:relative;overflow:hidden;';
             viewsWrap.appendChild(this._viewerContainer);
+            this._viewerContainer.appendChild(btnOptions);
+
+            const animBar = document.createElement('div');
+            animBar.className = 'preview-anim-bar';
+            animBar.innerHTML =
+                '<div class="preview-anim-content">' +
+                    '<div class="preview-anim-field">' +
+                        '<label class="preview-anim-label">' + Utils.escapeHtml(I18n.t('preview.animation')) + '</label>' +
+                        '<select class="preview-anim-select preview-animation-select"></select>' +
+                    '</div>' +
+                    '<div class="preview-anim-field">' +
+                        '<label class="preview-anim-label">' + Utils.escapeHtml(I18n.t('preview.action')) + '</label>' +
+                        '<select class="preview-anim-select preview-action-select"></select>' +
+                    '</div>' +
+                    '<div class="preview-anim-field preview-anim-field-compact">' +
+                        '<label class="preview-anim-label">' + Utils.escapeHtml(I18n.t('preview.meshNormals')) + '</label>' +
+                        '<select class="preview-anim-select preview-mesh-normal-select">' +
+                            '<option value="auto">' + Utils.escapeHtml(I18n.t('preview.meshNormals.auto')) + '</option>' +
+                            '<option value="source">' + Utils.escapeHtml(I18n.t('preview.meshNormals.source')) + '</option>' +
+                            '<option value="recalculate">' + Utils.escapeHtml(I18n.t('preview.meshNormals.recalculate')) + '</option>' +
+                        '</select>' +
+                    '</div>' +
+                    '<label class="preview-anim-toggle">' +
+                        '<input type="checkbox" class="preview-look-pointer-toggle">' +
+                        '<span>' + Utils.escapeHtml(I18n.t('preview.lookAtPointer')) + '</span>' +
+                    '</label>' +
+                '</div>';
+            this._viewerContainer.appendChild(animBar);
+            this._animBar = animBar;
+            this._animBarContent = animBar.querySelector('.preview-anim-content');
+            this._animBarToggle = btnOptions;
+            this._animationSelect = animBar.querySelector('.preview-animation-select');
+            this._actionSelect = animBar.querySelector('.preview-action-select');
+            this._meshNormalSelect = animBar.querySelector('.preview-mesh-normal-select');
+            this._lookAtPointerToggle = animBar.querySelector('.preview-look-pointer-toggle');
+            this._animBarCollapsed = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
+            this._syncAnimBarCollapsed();
+            if (this._meshNormalSelect) this._meshNormalSelect.value = this._polyMeshNormalMode;
+            if (this._lookAtPointerToggle) this._lookAtPointerToggle.checked = this._lookAtPointerEnabled;
 
             this._toolBadge = document.createElement('div');
             this._toolBadge.className = 'preview-tool-badge';
@@ -183,7 +225,31 @@
             btnZoomOut.addEventListener('click', () => this._adjustUvZoom(-1));
             btnEdit.addEventListener('click', () => this._setUvToolMode('edit'));
             btnPan.addEventListener('click', () => this._setUvToolMode('pan'));
-            // If no geometry, show fallback 2D texture
+            if (this._meshNormalSelect) {
+                this._meshNormalSelect.addEventListener('change', async () => {
+                    var nextMode = this._meshNormalSelect.value || 'auto';
+                    if (nextMode === this._polyMeshNormalMode) return;
+                    this._polyMeshNormalMode = nextMode;
+                    if (this._selectedSkin && this._currentProject) {
+                        await this.showSkin(this._selectedSkin, this._currentProject);
+                    }
+                });
+            }
+            if (this._lookAtPointerToggle) {
+                this._lookAtPointerToggle.addEventListener('change', () => {
+                    this._lookAtPointerEnabled = !!this._lookAtPointerToggle.checked;
+                    if (this._modelViewer) {
+                        this._modelViewer.setLookAtPointerEnabled(this._lookAtPointerEnabled);
+                    }
+                });
+            }
+            if (this._animBarToggle) {
+                this._animBarToggle.addEventListener('click', () => {
+                    this._animBarCollapsed = !this._animBarCollapsed;
+                    this._syncAnimBarCollapsed();
+                });
+            }
+            // If no geometry is available, fall back to a texture-only preview
             if (!skin.geometry || !project.geometries || !project.geometries[skin.geometry]) {
                 await this._showTextureFallback(skin, project);
                 return;
@@ -191,8 +257,11 @@
 
             // Create model viewer with the new container
             this._modelViewer = new SkinApex.ModelViewer(this._viewerContainer);
+            this._modelViewer.setPolyMeshNormalMode(this._polyMeshNormalMode);
+            this._modelViewer.setLookAtPointerEnabled(this._lookAtPointerEnabled);
             await this._modelViewer.showSkin(skin, project);
             this._populateAnimationSelect(skin);
+            this._populateActionSelect();
             if (this._onAnimationStateChanged) {
                 this._onAnimationStateChanged({
                     animatedBones: this.getAnimatedBones(),
@@ -436,10 +505,20 @@
                 this._modeButtons.btn3d.classList.toggle('active', mode === '3d');
                 this._modeButtons.btnUv.classList.toggle('active', mode === 'uv');
             }
+            if (this._animBar) {
+                this._animBar.style.display = mode === '3d' ? '' : 'none';
+            }
             if (mode === '3d' && this._modelViewer) {
                 this._modelViewer.setGizmoMode('translate');
             }
             this._syncToolUi();
+        }
+
+        _syncAnimBarCollapsed() {
+            if (!this._animBar || !this._animBarToggle || !this._animBarContent) return;
+            this._animBar.classList.toggle('is-collapsed', !!this._animBarCollapsed);
+            this._animBarToggle.setAttribute('aria-expanded', this._animBarCollapsed ? 'false' : 'true');
+            this._animBar.style.display = this._animBarCollapsed ? 'none' : '';
         }
 
         _setGizmoMode(mode) {
@@ -533,7 +612,8 @@
         _populateAnimationSelect(skin) {
             if (!this._animationSelect || !this._modelViewer) return;
             var animations = skin && skin.animations ? skin.animations : (skin && skin.data ? skin.data.animations : null);
-            var options = ['<option value="__all__">' + Utils.escapeHtml(I18n.t('preview.animationAll')) + '</option>', '<option value="__none__">' + Utils.escapeHtml(I18n.t('preview.animationNone')) + '</option>'];
+            var options = ['<option value="__all__">' + Utils.escapeHtml(I18n.t('preview.animationAll')) + '</option>'];
+            options.push('<option value="__none__">' + Utils.escapeHtml(I18n.t('preview.animationNone')) + '</option>');
             Object.keys(animations || {}).forEach(function (slot) {
                 options.push('<option value="' + Utils.escapeHtml(slot) + '">' + Utils.escapeHtml(slot + ' -> ' + animations[slot]) + '</option>');
             });
@@ -549,6 +629,28 @@
                     });
                 }
             };
+        }
+
+        _populateActionSelect() {
+            if (!this._actionSelect || !this._modelViewer) return;
+            var presets = this._modelViewer.getPreviewAnimationPresets ? this._modelViewer.getPreviewAnimationPresets() : [];
+            var options = ['<option value="__none__">' + Utils.escapeHtml(I18n.t('preview.actionNone')) + '</option>'];
+            presets.forEach(function (preset) {
+                options.push('<option value="__action__:' + Utils.escapeHtml(preset.key) + '">' + Utils.escapeHtml(I18n.t(preset.labelKey)) + '</option>');
+            });
+            this._actionSelect.innerHTML = options.join('');
+            this._actionSelect.value = this._selectedAction || '__none__';
+            this._actionSelect.onchange = () => {
+                this._selectedAction = this._actionSelect.value || '__none__';
+                this._modelViewer.setSelectedAction(this._selectedAction);
+                if (this._onAnimationStateChanged) {
+                    this._onAnimationStateChanged({
+                        animatedBones: this.getAnimatedBones(),
+                        animations: this.getAvailableAnimations()
+                    });
+                }
+            };
+            this._modelViewer.setSelectedAction(this._selectedAction);
         }
 
         getAnimatedBones() {

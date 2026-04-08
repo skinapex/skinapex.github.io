@@ -19,6 +19,7 @@
     const SkinPropertiesPanel = SkinApex.SkinPropertiesPanel;
     const PreviewPanel = SkinApex.PreviewPanel;
     const StatusBar = SkinApex.StatusBar;
+    const HistoryManager = SkinApex.HistoryManager;
     const Utils = SkinApex.Utils;
     const CryptManager = SkinApex.CryptManager;
     const I18n = SkinApex.I18n;
@@ -38,6 +39,7 @@
             this.statusBar = new StatusBar();
             this._selectedSkinIndex = -1;
             this._currentSkin = null;
+            this._historyByTabId = new Map();
             
             // Initialize WASM crypto worker
             this._initCrypto();
@@ -112,6 +114,375 @@
             });
         }
 
+        _getHistoryForTab(tabId) {
+            if (!tabId) return null;
+            var history = this._historyByTabId.get(tabId);
+            if (history) return history;
+            history = new HistoryManager(100);
+            history.setOnChange(() => this._updateHistoryUi());
+            this._historyByTabId.set(tabId, history);
+            return history;
+        }
+
+        _getActiveHistory() {
+            var tab = this.tabManager.getActive();
+            return tab ? this._getHistoryForTab(tab.id) : null;
+        }
+
+        _pushHistoryAction(action) {
+            var history = this._getActiveHistory();
+            if (!history || history.isApplying) return;
+            history.push(action);
+        }
+
+        _updateHistoryUi() {
+            var history = this._getActiveHistory();
+            var canUndo = !!(history && history.canUndo());
+            var canRedo = !!(history && history.canRedo());
+            var undoBtn = document.querySelector('.menu-action[data-action="undo"]');
+            var redoBtn = document.querySelector('.menu-action[data-action="redo"]');
+            if (undoBtn) undoBtn.disabled = !canUndo;
+            if (redoBtn) redoBtn.disabled = !canRedo;
+            this._refreshHistorySubmenus();
+        }
+
+        _closeTab(tabId) {
+            if (tabId) this._historyByTabId.delete(tabId);
+            this.tabManager.close(tabId);
+            this._updateHistoryUi();
+        }
+
+        _resetTabHistory(tabId) {
+            if (!tabId) return;
+            this._historyByTabId.delete(tabId);
+            this._getHistoryForTab(tabId);
+            this._updateHistoryUi();
+        }
+
+        async _undo() {
+            var history = this._getActiveHistory();
+            if (!history || !history.canUndo()) return;
+            var action = await history.undo();
+            if (action && action.label) {
+                this.statusBar.setMessage(I18n.format('status.undo', { action: action.label }));
+            }
+        }
+
+        async _redo() {
+            var history = this._getActiveHistory();
+            if (!history || !history.canRedo()) return;
+            var action = await history.redo();
+            if (action && action.label) {
+                this.statusBar.setMessage(I18n.format('status.redo', { action: action.label }));
+            }
+        }
+
+        async _undoToAction(action) {
+            var history = this._getActiveHistory();
+            if (!history || !action) return;
+            var actions = await history.undoTo(action);
+            var last = actions.length ? actions[actions.length - 1] : null;
+            if (last && last.label) {
+                this.statusBar.setMessage(I18n.format('status.undo', { action: last.label }));
+            }
+        }
+
+        async _redoToAction(action) {
+            var history = this._getActiveHistory();
+            if (!history || !action) return;
+            var actions = await history.redoTo(action);
+            var last = actions.length ? actions[actions.length - 1] : null;
+            if (last && last.label) {
+                this.statusBar.setMessage(I18n.format('status.redo', { action: last.label }));
+            }
+        }
+
+        _isEditingTextInput(target) {
+            if (!target) return false;
+            var tag = target.tagName;
+            return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!target.closest('[contenteditable="true"]');
+        }
+
+        _cloneValue(value) {
+            if (Array.isArray(value) || (value && typeof value === 'object')) {
+                return JSON.parse(JSON.stringify(value));
+            }
+            return value;
+        }
+
+        async _refreshCurrentSkinPanels() {
+            var active = this.tabManager.getActive();
+            if (!active || !active.project || !this._currentSkin) return;
+            await this.previewPanel.showSkin(this._currentSkin, active.project);
+            if (this._currentSkin.geometry && active.project.geometries && active.project.geometries[this._currentSkin.geometry]) {
+                this.outlinePanel.render(this._currentSkin.geometry, active.project.geometries[this._currentSkin.geometry]);
+                this.outlinePanel.setAnimatedBones(this.previewPanel.getAnimatedBones());
+            }
+            this.skinProperties.show(this._currentSkin);
+            this._switchDetailTab('skin');
+        }
+
+        async _applySkinMutation(skin, mutation, options) {
+            options = options || {};
+            if (!skin || !skin.data || !mutation) return;
+
+            if (mutation.type === 'name') {
+                skin.name = mutation.value;
+                if (skin.data.localization_name !== undefined) skin.data.localization_name = mutation.value;
+                else skin.data.name = mutation.value;
+            } else if (mutation.type === 'skin_type') {
+                skin.type = mutation.value || 'skin';
+                if (skin.data.skin_type !== undefined) skin.data.skin_type = mutation.value;
+                else if (skin.data.class !== undefined) skin.data.class = mutation.value;
+                else skin.data.type = mutation.value;
+            } else if (mutation.type === 'hide_framework') {
+                skin.data.hide_framework = !!mutation.value;
+            } else if (mutation.type === 'animations') {
+                var nextAnimations = Object.assign({}, mutation.value || {});
+                skin.animations = nextAnimations;
+                skin.data.animations = Object.assign({}, nextAnimations);
+            }
+
+            this._refreshSkinListSelection();
+            if (this._currentSkin === skin) {
+                await this._refreshCurrentSkinPanels();
+            }
+
+            if (options.recordHistory !== false) {
+                this._pushHistoryAction({
+                    label: mutation.label,
+                    mergeKey: mutation.mergeKey,
+                    undo: async () => {
+                        await this._applySkinMutation(skin, {
+                            type: mutation.type,
+                            value: this._cloneValue(mutation.before)
+                        }, { recordHistory: false });
+                    },
+                    redo: async () => {
+                        await this._applySkinMutation(skin, {
+                            type: mutation.type,
+                            value: this._cloneValue(mutation.after)
+                        }, { recordHistory: false });
+                    }
+                });
+            }
+        }
+
+        _getBoneHistoryLabel(property, boneName) {
+            if (property === 'pivot') return I18n.format('history.bonePivot', { name: boneName });
+            if (property === 'translation') return I18n.format('history.boneTranslation', { name: boneName });
+            if (property === 'offset') return I18n.format('history.boneOffset', { name: boneName });
+            if (property === 'parent') return I18n.format('history.boneParent', { name: boneName });
+            return I18n.format('history.boneRotation', { name: boneName });
+        }
+
+        _getBoneSnapshot(geoData) {
+            return this._cloneValue(geoData && geoData.bones ? geoData.bones : []);
+        }
+
+        _getBoneMutationBeforeValue(bone, property) {
+            if (!bone) return null;
+            if (property === 'translation') {
+                return bone.pivot && bone.pivot.slice ? bone.pivot.slice() : [0, 0, 0];
+            }
+            if (property === 'offset') {
+                return [0, 0, 0];
+            }
+            if (property === 'parent') {
+                return bone.parent || '';
+            }
+            return bone[property] && bone[property].slice ? bone[property].slice() : null;
+        }
+
+        _applyBoneSnapshot(geoId, geoData, bonesSnapshot, state) {
+            var viewer = this.previewPanel.getModelViewer();
+            if (!viewer || !geoId || !geoData) return;
+
+            state = state || {};
+            geoData.bones = this._cloneValue(bonesSnapshot || []);
+            viewer.refreshGeometry();
+            this._refreshOutline();
+            this._refreshSkinListSelection();
+
+            var selectedBone = state.selectedBone || '';
+            var showBoneEditor = !!state.showBoneEditor;
+            var hasSelectedBone = selectedBone && !!this._findBoneData(selectedBone, geoData);
+
+            if (hasSelectedBone) {
+                this.outlinePanel.selectBone(selectedBone, geoId);
+                if (viewer.highlightBone) viewer.highlightBone(selectedBone);
+                if (showBoneEditor) {
+                    this._showBoneEditorForSelection(selectedBone, geoId, geoData);
+                } else {
+                    this.boneEditor.hide();
+                }
+            } else {
+                this.outlinePanel.clearSelection();
+                if (viewer.highlightBone) viewer.highlightBone(null);
+                this.boneEditor.hide();
+            }
+
+            this._restoreRightPanelAfterBoneMutation({
+                showOutline: true,
+                showBoneEditor: hasSelectedBone && showBoneEditor,
+                boneName: hasSelectedBone ? selectedBone : '',
+                geoId: geoId,
+                geoData: geoData,
+                hideBoneEditor: !hasSelectedBone || !showBoneEditor
+            });
+        }
+
+        _pushBoneSnapshotHistory(label, geoId, geoData, beforeBones, afterBones, undoState, redoState) {
+            this._pushHistoryAction({
+                label: label,
+                undo: async () => {
+                    this._applyBoneSnapshot(geoId, geoData, beforeBones, undoState);
+                },
+                redo: async () => {
+                    this._applyBoneSnapshot(geoId, geoData, afterBones, redoState);
+                }
+            });
+        }
+
+        _renderHistorySubmenu(direction) {
+            var container = document.querySelector('.menu-submenu[data-history-menu="' + direction + '"]');
+            if (!container) return;
+            var content = container.querySelector('.menu-submenu-content') || container;
+
+            var history = this._getActiveHistory();
+            var items = history
+                ? (direction === 'undo' ? history.getUndoItems(15) : history.getRedoItems(15))
+                : [];
+
+            content.innerHTML = '';
+            container.classList.remove('has-scroll-top', 'has-scroll-bottom');
+            if (!items.length) {
+                var empty = document.createElement('div');
+                empty.className = 'menu-history-empty';
+                empty.textContent = I18n.t(direction === 'undo' ? 'menu.history.emptyUndo' : 'menu.history.emptyRedo');
+                content.appendChild(empty);
+                return;
+            }
+
+            for (var i = 0; i < items.length; i++) {
+                var action = items[i];
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'menu-history-item';
+                btn.textContent = action.label || (direction === 'undo' ? I18n.t('menu.undo') : I18n.t('menu.redo'));
+                btn.dataset.historyDirection = direction;
+                btn.dataset.historyIndex = String(i);
+                content.appendChild(btn);
+            }
+
+            this._updateHistorySubmenuScrollState(container);
+        }
+
+        _refreshHistorySubmenus() {
+            this._renderHistorySubmenu('undo');
+            this._renderHistorySubmenu('redo');
+        }
+
+        _updateHistorySubmenuScrollState(container) {
+            if (!container) return;
+            var content = container.querySelector('.menu-submenu-content');
+            if (!content) return;
+
+            var maxScroll = Math.max(0, content.scrollHeight - content.clientHeight);
+            container.classList.toggle('has-scroll-top', content.scrollTop > 0);
+            container.classList.toggle('has-scroll-bottom', maxScroll > 0 && content.scrollTop < maxScroll - 1);
+        }
+
+        _positionHistorySubmenu(actionEl) {
+            if (!actionEl) return;
+            var submenu = actionEl.querySelector('.menu-submenu');
+            if (!submenu) return;
+
+            submenu.style.left = '100%';
+            submenu.style.right = 'auto';
+            submenu.style.top = '-4px';
+            submenu.style.bottom = 'auto';
+
+            var margin = 8;
+            var rect = submenu.getBoundingClientRect();
+            if (rect.right > window.innerWidth - margin) {
+                submenu.style.left = 'auto';
+                submenu.style.right = '100%';
+                rect = submenu.getBoundingClientRect();
+            }
+            if (rect.left < margin) {
+                submenu.style.left = Math.max(margin - actionEl.getBoundingClientRect().left, 0) + 'px';
+                submenu.style.right = 'auto';
+                rect = submenu.getBoundingClientRect();
+            }
+            if (rect.bottom > window.innerHeight - margin) {
+                submenu.style.top = 'auto';
+                submenu.style.bottom = '-4px';
+                rect = submenu.getBoundingClientRect();
+            }
+            if (rect.top < margin) {
+                submenu.style.top = Math.max(margin - rect.top - 4, -4) + 'px';
+                submenu.style.bottom = 'auto';
+            }
+        }
+
+        _applyBoneMutation(boneName, property, value, geoId, geoData, options) {
+            options = options || {};
+            var viewer = this.previewPanel.getModelViewer();
+            if (!viewer || !boneName || !geoId || !geoData) return;
+
+            var beforeBones = property === 'parent' ? this._getBoneSnapshot(geoData) : null;
+
+            if (property === 'pivot') {
+                viewer.updateBonePivot(boneName, value, geoId, geoData);
+                this.statusBar.setMessage(I18n.format('status.updatedOrigin', { name: boneName }));
+            } else if (property === 'translation') {
+                viewer.updateBoneTranslation(boneName, value, geoId, geoData);
+                this.statusBar.setMessage(I18n.format('status.updatedPosition', { name: boneName }));
+            } else if (property === 'offset') {
+                viewer.updateBoneOffset(boneName, value, geoId, geoData);
+                this.statusBar.setMessage(I18n.format('status.updatedPosition', { name: boneName }));
+            } else if (property === 'rotation') {
+                viewer.updateBoneRotation(boneName, value, geoId, geoData);
+                this.statusBar.setMessage(I18n.format('status.updatedRotation', { name: boneName }));
+            } else if (property === 'parent') {
+                viewer.updateBoneParent(boneName, value, geoId, geoData);
+                this.statusBar.setMessage(I18n.format('status.updatedParent', { name: boneName }));
+            }
+
+            var afterBones = property === 'parent' ? this._getBoneSnapshot(geoData) : null;
+
+            this._refreshOutline();
+            if (this.outlinePanel.getSelectedBone() === boneName) {
+                this._showBoneEditorForSelection(boneName, geoId, geoData);
+            }
+
+            if (options.recordHistory !== false) {
+                if (property === 'parent') {
+                    this._pushBoneSnapshotHistory(
+                        this._getBoneHistoryLabel(property, boneName),
+                        geoId,
+                        geoData,
+                        beforeBones,
+                        afterBones,
+                        { selectedBone: boneName, showBoneEditor: true },
+                        { selectedBone: boneName, showBoneEditor: true }
+                    );
+                } else {
+                    this._pushHistoryAction({
+                        label: this._getBoneHistoryLabel(property, boneName),
+                        mergeKey: 'bone:' + geoId + ':' + boneName + ':' + property,
+                        undo: async () => {
+                            this._applyBoneMutation(boneName, property, this._cloneValue(options.before), geoId, geoData, { recordHistory: false });
+                        },
+                        redo: async () => {
+                            this._applyBoneMutation(boneName, property, this._cloneValue(value), geoId, geoData, { recordHistory: false });
+                        }
+                    });
+                }
+            }
+        }
+
         _wireSkinList() {
             this.skinList.setOnDecryptRequest(() => {
                 this._openDecryptDialog();
@@ -129,26 +500,9 @@
                 var viewer = this.previewPanel.getModelViewer();
                 if (viewer) {
                     viewer.setOnBoneTransform((boneName, property, value, geoId, geoData) => {
-                        const activeViewer = this.previewPanel.getModelViewer();
-                        if (!activeViewer) return;
-                        switch (property) {
-                            case 'pivot':
-                                activeViewer.updateBonePivot(boneName, value, geoId, geoData);
-                                this.statusBar.setMessage(I18n.format('status.updatedOrigin', { name: boneName }));
-                                break;
-                            case 'translation':
-                                activeViewer.updateBoneTranslation(boneName, value, geoId, geoData);
-                                this.statusBar.setMessage(I18n.format('status.updatedPosition', { name: boneName }));
-                                break;
-                            case 'offset':
-                                activeViewer.updateBoneOffset(boneName, value, geoId, geoData);
-                                this.statusBar.setMessage(I18n.format('status.updatedPosition', { name: boneName }));
-                                break;
-                            case 'rotation':
-                                activeViewer.updateBoneRotation(boneName, value, geoId, geoData);
-                                this.statusBar.setMessage(I18n.format('status.updatedRotation', { name: boneName }));
-                                break;
-                        }
+                        var bone = this._findBoneData(boneName, geoData);
+                        var before = this._getBoneMutationBeforeValue(bone, property);
+                        this._applyBoneMutation(boneName, property, value, geoId, geoData, { before: before });
                     });
                 }
                 var skinAnimations = skin && (skin.animations || (skin.data && skin.data.animations));
@@ -224,66 +578,56 @@
         _wireSkinProperties() {
             this.skinProperties.setOnChange(async (skin, prop, value) => {
                 if (!skin || !skin.data) return;
-
                 if (prop === 'name') {
-                    skin.name = value;
-                    if (skin.data.localization_name !== undefined) skin.data.localization_name = value;
-                    else skin.data.name = value;
+                    await this._applySkinMutation(skin, {
+                        type: 'name',
+                        value: value,
+                        before: skin.name,
+                        after: value,
+                        label: I18n.t('history.skinName'),
+                        mergeKey: 'skin:name:' + (skin.texturePath || skin.name || '')
+                    });
                 } else if (prop === 'skin_type') {
-                    skin.type = value || 'skin';
-                    if (skin.data.skin_type !== undefined) skin.data.skin_type = value;
-                    else if (skin.data.class !== undefined) skin.data.class = value;
-                    else skin.data.type = value;
+                    await this._applySkinMutation(skin, {
+                        type: 'skin_type',
+                        value: value,
+                        before: skin.type,
+                        after: value,
+                        label: I18n.t('history.skinType'),
+                        mergeKey: 'skin:type:' + (skin.texturePath || skin.name || '')
+                    });
                 } else if (prop === 'hide_framework') {
-                    skin.data.hide_framework = !!value;
-                } else if (prop === 'animations') {
-                    skin.animations = Object.assign({}, value);
-                    skin.data.animations = Object.assign({}, value);
-                } else if (prop === 'animation-add') {
-                    var nextAnimations = Object.assign({}, skin.animations || skin.data.animations || {});
-                    nextAnimations[value.key] = value.value;
-                    skin.animations = nextAnimations;
-                    skin.data.animations = Object.assign({}, nextAnimations);
-                    this.skinProperties.show(skin);
-                    this._switchDetailTab('skin');
-                } else if (prop === 'animation-rename-key') {
-                    var renamedAnimations = Object.assign({}, skin.animations || skin.data.animations || {});
-                    if (value.from && value.to && value.from !== value.to) {
-                        renamedAnimations[value.to] = renamedAnimations[value.from] || '';
-                        delete renamedAnimations[value.from];
-                    }
-                    skin.animations = renamedAnimations;
-                    skin.data.animations = Object.assign({}, renamedAnimations);
-                    this.skinProperties.show(skin);
-                    this._switchDetailTab('skin');
-                } else if (prop === 'animation-set-value') {
-                    var updatedAnimations = Object.assign({}, skin.animations || skin.data.animations || {});
-                    updatedAnimations[value.key] = value.value;
-                    skin.animations = updatedAnimations;
-                    skin.data.animations = Object.assign({}, updatedAnimations);
-                    this.skinProperties.show(skin);
-                    this._switchDetailTab('skin');
-                } else if (prop === 'animation-delete') {
-                    var currentAnimations = Object.assign({}, skin.animations || skin.data.animations || {});
-                    delete currentAnimations[value];
-                    skin.animations = currentAnimations;
-                    skin.data.animations = Object.assign({}, currentAnimations);
-                    this.skinProperties.show(skin);
-                    this._switchDetailTab('skin');
-                }
-
-                this._refreshSkinListSelection();
-                if (this._currentSkin === skin) {
-                    var active = this.tabManager.getActive();
-                    if (active && active.project) {
-                        await this.previewPanel.showSkin(skin, active.project);
-                        if (skin.geometry && active.project.geometries && active.project.geometries[skin.geometry]) {
-                            this.outlinePanel.render(skin.geometry, active.project.geometries[skin.geometry]);
-                            this.outlinePanel.setAnimatedBones(this.previewPanel.getAnimatedBones());
+                    await this._applySkinMutation(skin, {
+                        type: 'hide_framework',
+                        value: !!value,
+                        before: !!skin.data.hide_framework,
+                        after: !!value,
+                        label: I18n.t('history.hideFramework')
+                    });
+                } else if (prop === 'animations' || prop === 'animation-add' || prop === 'animation-rename-key' || prop === 'animation-set-value' || prop === 'animation-delete') {
+                    var beforeAnimations = Object.assign({}, skin.animations || skin.data.animations || {});
+                    var nextAnimations = Object.assign({}, beforeAnimations);
+                    if (prop === 'animations') {
+                        nextAnimations = Object.assign({}, value || {});
+                    } else if (prop === 'animation-add') {
+                        nextAnimations[value.key] = value.value;
+                    } else if (prop === 'animation-rename-key') {
+                        if (value.from && value.to && value.from !== value.to) {
+                            nextAnimations[value.to] = nextAnimations[value.from] || '';
+                            delete nextAnimations[value.from];
                         }
-                        this.skinProperties.show(skin);
-                        this._switchDetailTab('skin');
+                    } else if (prop === 'animation-set-value') {
+                        nextAnimations[value.key] = value.value;
+                    } else if (prop === 'animation-delete') {
+                        delete nextAnimations[value];
                     }
+                    await this._applySkinMutation(skin, {
+                        type: 'animations',
+                        value: nextAnimations,
+                        before: beforeAnimations,
+                        after: nextAnimations,
+                        label: I18n.t('history.animations')
+                    });
                 }
             });
         }
@@ -350,7 +694,7 @@
         _syncRightPanelState() {
             var rightPanel = document.getElementById('right-panel');
             if (!rightPanel) return;
-            var boneVisible = this.boneEditor && this.boneEditor.isVisible();
+            var boneVisible = !!(this.boneEditor && this.boneEditor._currentBoneName);
             var outlineVisible = !!(this.outlinePanel && this.outlinePanel.el && this.outlinePanel.el.style.display !== 'none');
             var skinPanel = document.getElementById('skin-properties-panel');
             var skinVisible = !!skinPanel && skinPanel.style.display !== 'none';
@@ -522,6 +866,7 @@
                 var mode = change.mode;
                 var geoId = change.geoId;
                 var geoData = change.geoData;
+                var beforeBones = self._getBoneSnapshot(geoData);
 
                 var bones = geoData && geoData.bones ? geoData.bones : null;
                 if (!bones) return;
@@ -618,6 +963,15 @@
                     self.skinProperties.hide();
                 }
                 self._syncRightPanelState();
+                self._pushBoneSnapshotHistory(
+                    I18n.format('history.boneParent', { name: boneName }),
+                    geoId,
+                    geoData,
+                    beforeBones,
+                    self._getBoneSnapshot(geoData),
+                    { selectedBone: boneName, showBoneEditor: boneEditorWasVisible },
+                    { selectedBone: boneName, showBoneEditor: boneEditorWasVisible }
+                );
                 
                 self.logger.log('Bone ' + boneName + ' moved ' + mode + ' ' + targetBone);
             });
@@ -658,11 +1012,9 @@
                     self.statusBar.setMessage(boneName + ' (' + geoId + ')');
                 });
                 viewer.setOnBoneTransform(function (boneName, property, value, geoId, geoData) {
-                    if (property === 'pivot') {
-                        viewer.updateBonePivot(boneName, value, geoId, geoData);
-                    } else if (property === 'rotation') {
-                        viewer.updateBoneRotation(boneName, value, geoId, geoData);
-                    }
+                    var bone = self._findBoneData(boneName, geoData);
+                    var before = self._getBoneMutationBeforeValue(bone, property);
+                    self._applyBoneMutation(boneName, property, value, geoId, geoData, { before: before });
                     self.outlinePanel.selectBone(boneName, geoId);
                     self._showBoneEditorForSelection(boneName, geoId, geoData);
                 });
@@ -677,6 +1029,7 @@
             
             var viewer = this.previewPanel.getModelViewer();
             if (!viewer) return;
+            var beforeBones = this._getBoneSnapshot(geoData);
 
             // Determine bone type and name
             var existingNames = geoData.bones.map(function (b, i) { return b.name || ('bone_' + i); });
@@ -704,6 +1057,15 @@
 
             // Show bone editor for the new bone
             this._showBoneEditorForSelection(newName, geoId, geoData);
+            this._pushBoneSnapshotHistory(
+                I18n.format('history.boneAdd', { name: newName }),
+                geoId,
+                geoData,
+                beforeBones,
+                this._getBoneSnapshot(geoData),
+                { selectedBone: parentBone || '', showBoneEditor: !!parentBone },
+                { selectedBone: newName, showBoneEditor: true }
+            );
 
             this.logger.log('Added ' + (action === 'add-group' ? 'group' : 'bone') + ': ' + newName);
         }
@@ -713,17 +1075,18 @@
 
             var viewer = this.previewPanel.getModelViewer();
             if (!viewer) return;
+            var beforeBones = this._getBoneSnapshot(geoData);
             var selectedBone = this.outlinePanel.getSelectedBone();
 
             var canonicalRules = {
-                root: { label: 'root', parent: '' },
-                waist: { label: 'waist', parent: 'root', optional: true },
-                body: { label: 'body', parent: 'waist', fallbackParent: 'root' },
-                head: { label: 'head', parent: 'body' },
-                leftarm: { label: 'leftArm', parent: 'body' },
-                rightarm: { label: 'rightArm', parent: 'body' },
-                leftleg: { label: 'leftLeg', parent: 'root' },
-                rightleg: { label: 'rightLeg', parent: 'root' }
+                root: { label: 'root', acceptedNames: ['root'], parent: '' },
+                waist: { label: 'waist', acceptedNames: ['waist'], parent: 'root', optional: true },
+                body: { label: 'body', acceptedNames: ['body'], parent: 'waist', fallbackParent: 'root' },
+                head: { label: 'head', acceptedNames: ['head'], parent: 'body' },
+                leftarm: { label: 'leftArm', acceptedNames: ['leftArm', 'leftarm'], parent: 'body' },
+                rightarm: { label: 'rightArm', acceptedNames: ['rightArm', 'rightarm'], parent: 'body' },
+                leftleg: { label: 'leftLeg', acceptedNames: ['leftLeg', 'leftleg'], parent: 'root' },
+                rightleg: { label: 'rightLeg', acceptedNames: ['rightLeg', 'rightleg'], parent: 'root' }
             };
 
             var aliases = {
@@ -803,7 +1166,8 @@
                 if (!bone) return;
 
                 var targetName = rule.label;
-                if ((bone.name || '') !== targetName) {
+                var acceptedNames = Array.isArray(rule.acceptedNames) ? rule.acceptedNames : [targetName];
+                if (acceptedNames.indexOf(bone.name || '') === -1) {
                     var previousName = bone.name || '';
                     if (selectedBone === previousName) {
                         selectedBone = targetName;
@@ -847,6 +1211,15 @@
 
             this.logger.log('Auto-fixed human bones: ' + summary.join(', '));
             this.statusBar.setMessage(I18n.format('status.autoFix', { summary: summary.join(', ') }));
+            this._pushBoneSnapshotHistory(
+                I18n.t('history.autoFixHuman'),
+                geoId,
+                geoData,
+                beforeBones,
+                this._getBoneSnapshot(geoData),
+                { selectedBone: selectedBone || '', showBoneEditor: !!selectedBone },
+                { selectedBone: selectedBone || '', showBoneEditor: !!selectedBone }
+            );
         }
 
         /**
@@ -855,39 +1228,16 @@
         _wireBoneEditor() {
             // Bone property changes (pivot, rotation, parent)
             this.boneEditor.setOnBoneChange((boneName, property, value, geoId, geoData) => {
-                const viewer = this.previewPanel.getModelViewer();
-                if (!viewer) return;
-
-                switch (property) {
-                    case 'pivot':
-                        viewer.updateBonePivot(boneName, value, geoId, geoData);
-                        this.statusBar.setMessage(I18n.format('status.updatedOrigin', { name: boneName }));
-                        break;
-                    case 'translation':
-                        viewer.updateBoneTranslation(boneName, value, geoId, geoData);
-                        this.statusBar.setMessage(I18n.format('status.updatedPosition', { name: boneName }));
-                        break;
-                    case 'offset':
-                        viewer.updateBoneOffset(boneName, value, geoId, geoData);
-                        this.statusBar.setMessage(I18n.format('status.updatedPosition', { name: boneName }));
-                        break;
-                    case 'rotation':
-                        viewer.updateBoneRotation(boneName, value, geoId, geoData);
-                        this.statusBar.setMessage(I18n.format('status.updatedRotation', { name: boneName }));
-                        break;
-                    case 'parent':
-                        viewer.updateBoneParent(boneName, value, geoId, geoData);
-                        // Refresh outline to show updated parent relationships
-                        this._refreshOutline();
-                        this.statusBar.setMessage(I18n.format('status.updatedParent', { name: boneName }));
-                        break;
-                }
+                var bone = this._findBoneData(boneName, geoData);
+                var before = this._getBoneMutationBeforeValue(bone, property);
+                this._applyBoneMutation(boneName, property, value, geoId, geoData, { before: before });
             });
 
             // Add bone
             this.boneEditor.setOnBoneAdd((boneName, geoId, geoData) => {
                 const viewer = this.previewPanel.getModelViewer();
                 if (!viewer) return;
+                var beforeBones = this._getBoneSnapshot(geoData);
 
                 // Generate a unique name for the new bone
                 var existingNames = geoData.bones.map((b, i) => b.name || ('bone_' + i));
@@ -924,6 +1274,15 @@
                     this._showBoneEditorForSelection(newBoneName, geoId, geoData);
                     this._syncRightPanelState();
                     this.outlinePanel.selectBone(newBoneName, geoId);
+                    this._pushBoneSnapshotHistory(
+                        I18n.format('history.boneAdd', { name: newBoneName }),
+                        geoId,
+                        geoData,
+                        beforeBones,
+                        this._getBoneSnapshot(geoData),
+                        { selectedBone: boneName || '', showBoneEditor: !!boneName },
+                        { selectedBone: newBoneName, showBoneEditor: true }
+                    );
                     this.logger.log('Added bone: ' + newBoneName);
                 }, 50);
             });
@@ -946,6 +1305,8 @@
                     return;
                 }
 
+                var beforeBones = this._getBoneSnapshot(geoData);
+
                 var renamed = false;
                 geoData.bones.forEach((bone, i) => {
                     var name = bone.name || ('bone_' + i);
@@ -967,12 +1328,22 @@
                 this.outlinePanel.selectBone(newName, geoId);
                 this._showBoneEditorForSelection(newName, geoId, geoData);
                 this._restoreRightPanelAfterBoneMutation({ showBoneEditor: true, boneName: newName, geoId: geoId, geoData: geoData });
-                this.statusBar.setMessage('Renamed bone to ' + newName);
+                this._pushBoneSnapshotHistory(
+                    I18n.format('history.boneRename', { from: oldName, to: newName }),
+                    geoId,
+                    geoData,
+                    beforeBones,
+                    this._getBoneSnapshot(geoData),
+                    { selectedBone: oldName, showBoneEditor: true },
+                    { selectedBone: newName, showBoneEditor: true }
+                );
+                this.statusBar.setMessage(I18n.format('status.renamedBone', { name: newName }));
             });
 
             this.boneEditor.setOnBoneDeleteTree((boneName, geoId, geoData) => {
                 const viewer = this.previewPanel.getModelViewer();
                 if (!viewer || !geoData || !geoData.bones) return;
+                var beforeBones = this._getBoneSnapshot(geoData);
 
                 const toDelete = new Set();
                 const collect = (name) => {
@@ -992,6 +1363,15 @@
                 this._refreshOutline();
                 this._refreshSkinListSelection();
                 this._restoreRightPanelAfterBoneMutation({ hideBoneEditor: true });
+                this._pushBoneSnapshotHistory(
+                    I18n.format('history.boneDeleteTree', { name: boneName }),
+                    geoId,
+                    geoData,
+                    beforeBones,
+                    this._getBoneSnapshot(geoData),
+                    { selectedBone: boneName, showBoneEditor: true },
+                    { selectedBone: '', showBoneEditor: false }
+                );
                 this.statusBar.setMessage(I18n.format('status.deletedBoneTree', { name: boneName }));
             });
 
@@ -999,6 +1379,7 @@
             this.boneEditor.setOnBoneDelete((boneName, geoId, geoData) => {
                 const viewer = this.previewPanel.getModelViewer();
                 if (!viewer) return;
+                var beforeBones = this._getBoneSnapshot(geoData);
 
                 viewer.deleteBone(boneName, geoId, geoData);
 
@@ -1007,6 +1388,15 @@
                 this._refreshOutline();
                 this._refreshSkinListSelection();
                 this._restoreRightPanelAfterBoneMutation({ hideBoneEditor: true });
+                this._pushBoneSnapshotHistory(
+                    I18n.format('history.boneDelete', { name: boneName }),
+                    geoId,
+                    geoData,
+                    beforeBones,
+                    this._getBoneSnapshot(geoData),
+                    { selectedBone: boneName, showBoneEditor: true },
+                    { selectedBone: '', showBoneEditor: false }
+                );
 
                 this.logger.log('Deleted bone: ' + boneName);
             });
@@ -1285,8 +1675,12 @@
                 this.skinProperties.hide();
                 this._setDetailTabsVisible(false);
                 this._showWelcome();
+                this._updateHistoryUi();
                 return;
             }
+
+            this._getHistoryForTab(tabId);
+            this._updateHistoryUi();
 
             if (project && project.__helpPage) {
                 this.skinProperties.setProject(null);
@@ -1491,8 +1885,7 @@
         _setupShortcuts() {
             document.addEventListener('keydown', (e) => {
                 // Don't capture shortcuts when typing in inputs
-                var tag = e.target.tagName;
-                var inInput = (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT');
+                var inInput = this._isEditingTextInput(e.target);
 
                 if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
                     e.preventDefault();
@@ -1505,7 +1898,7 @@
                 if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
                     e.preventDefault();
                     const tab = this.tabManager.getActive();
-                    if (tab) this.tabManager.close(tab.id);
+                    if (tab) this._closeTab(tab.id);
                 }
                 if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
                     e.preventDefault();
@@ -1513,6 +1906,15 @@
                     var sb = document.querySelector('[data-panel="sidebar"]');
                     if (sb) sb.classList.toggle('active', this._showSidebar);
                     this._updateWorkspaceLayout();
+                }
+                if (!inInput && (e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'z') {
+                    e.preventDefault();
+                    if (e.shiftKey) this._redo();
+                    else this._undo();
+                }
+                if (!inInput && (e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'y') {
+                    e.preventDefault();
+                    this._redo();
                 }
                 // Delete key to remove selected bone
                 if (e.key === 'Delete' && this.boneEditor.isVisible()) {
@@ -1523,11 +1925,21 @@
                         if (tab && geoId) {
                             var geoData = tab.project.geometries[geoId];
                             if (geoData) {
+                                var beforeBones = this._getBoneSnapshot(geoData);
                                 var viewer = this.previewPanel.getModelViewer();
                                 if (viewer) viewer.deleteBone(boneName, geoId, geoData);
                                 this.boneEditor.hide();
                                 this._refreshOutline();
                                 this._refreshSkinListSelection();
+                                this._pushBoneSnapshotHistory(
+                                    I18n.format('history.boneDelete', { name: boneName }),
+                                    geoId,
+                                    geoData,
+                                    beforeBones,
+                                    this._getBoneSnapshot(geoData),
+                                    { selectedBone: boneName, showBoneEditor: true },
+                                    { selectedBone: '', showBoneEditor: false }
+                                );
                                 this.logger.log('Deleted bone: ' + boneName);
                             }
                         }
@@ -1641,6 +2053,9 @@
                 menubar.querySelectorAll('.menu-item.open').forEach(function (el) {
                     el.classList.remove('open');
                 });
+                menubar.querySelectorAll('.menu-action-history.history-open').forEach(function (el) {
+                    el.classList.remove('history-open');
+                });
                 openMenuItem = null;
             }
 
@@ -1671,9 +2086,37 @@
             // Click on menu trigger to open dropdown
             menubar.addEventListener('click', function (e) {
                 var trigger = e.target.closest('.menu-trigger');
+                var historyItem = e.target.closest('.menu-history-item');
                 var action = e.target.closest('.menu-action');
 
+                if (historyItem) {
+                    e.stopPropagation();
+                    var direction = historyItem.dataset.historyDirection;
+                    var history = self._getActiveHistory();
+                    if (!history) return;
+                    var items = direction === 'undo' ? history.getUndoItems(15) : history.getRedoItems(15);
+                    var target = items[Number(historyItem.dataset.historyIndex)];
+                    if (!target) return;
+                    if (direction === 'undo') self._undoToAction(target);
+                    else self._redoToAction(target);
+                    closeAllMenus();
+                    return;
+                }
+
                 if (action) {
+                    if (action.classList.contains('menu-action-history')) {
+                        var historyDirection = action.dataset.historyDirection;
+                        var hasItems = historyDirection === 'undo'
+                            ? !!(self._getActiveHistory() && self._getActiveHistory().canUndo())
+                            : !!(self._getActiveHistory() && self._getActiveHistory().canRedo());
+                        if (!hasItems) return;
+                        action.classList.toggle('history-open');
+                        if (action.classList.contains('history-open')) {
+                            self._positionHistorySubmenu(action);
+                        }
+                        e.stopPropagation();
+                        return;
+                    }
                     // Execute action
                     var act = action.dataset.action;
                     self._executeMenuAction(act);
@@ -1696,13 +2139,27 @@
             menubar.addEventListener('mouseover', function (e) {
                 if (!openMenuItem) return;
                 var trigger = e.target.closest('.menu-trigger');
+                var historyAction = e.target.closest('.menu-action-history');
                 if (trigger) {
                     var item = trigger.closest('.menu-item');
                     if (item !== openMenuItem) {
                         openMenuDropdown(item);
                     }
                 }
+                if (historyAction) {
+                    menubar.querySelectorAll('.menu-action-history.history-open').forEach(function (el) {
+                        if (el !== historyAction) el.classList.remove('history-open');
+                    });
+                    historyAction.classList.add('history-open');
+                    self._positionHistorySubmenu(historyAction);
+                }
             });
+
+            menubar.addEventListener('scroll', function (e) {
+                var content = e.target.closest('.menu-submenu-content');
+                if (!content) return;
+                self._updateHistorySubmenuScrollState(content.closest('.menu-submenu'));
+            }, true);
 
             // Close on click outside
             document.addEventListener('click', function () {
@@ -1727,6 +2184,12 @@
                     break;
                 case 'save':
                     this._saveActiveProject();
+                    break;
+                case 'undo':
+                    this._undo();
+                    break;
+                case 'redo':
+                    this._redo();
                     break;
                 case 'toggle-sidebar':
                     this._showSidebar = !this._showSidebar;
@@ -2536,6 +2999,7 @@
                     } else {
                         tab.project.cleanup();
                         self.tabManager.replaceProject(tab.id, project.name, project);
+                        self._resetTabHistory(tab.id);
                         if (self.tabManager.getActive() && self.tabManager.getActive().id === tab.id) {
                             self._onTabChanged(tab.id, project);
                         }
@@ -2746,6 +3210,7 @@
             } else {
                 sourceTab.project.cleanup();
                 this.tabManager.replaceProject(sourceTab.id, project.name, project);
+                this._resetTabHistory(sourceTab.id);
                 if (this.tabManager.getActive() && this.tabManager.getActive().id === sourceTab.id) {
                     this._onTabChanged(sourceTab.id, project);
                 }

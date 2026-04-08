@@ -93,6 +93,7 @@
                 return;
             }
 
+            this.el.classList.remove('is-hidden');
             this.el.style.display = 'flex';
             this._render(bone);
         }
@@ -101,6 +102,7 @@
          * Hide the bone editor
          */
         hide() {
+            this.el.classList.add('is-hidden');
             this.el.style.display = 'none';
             this._currentBoneName = null;
             this._currentGeoId = null;
